@@ -1,6 +1,6 @@
 damp11113-library
 ===============
-all in one
+all in one functions
 
 Installing
 
