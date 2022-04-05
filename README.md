@@ -6,6 +6,9 @@ Installing
 
     pip install damp11113
     
+or
+
+    pip install git+https://github.com/damp11113/damp11113-library.git
     
 License
 ===============
