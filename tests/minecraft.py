@@ -6,8 +6,6 @@ import damp11113.network as network
 import damp11113.file as file
 import sys
 
-
-
 class mcstatus_exception(Exception):
     pass
 

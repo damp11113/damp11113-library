@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='damp11113',
-    version='2022.3.29.8.13.0 DEV',
+    version='2022.4.30.8.12.9',
     license='MIT',
     author='damp11113',
     author_email='damp51252@gmail.com',
@@ -25,7 +25,9 @@ setup(
         'pafy',
         'ffmpeg-python',
         'youtube-dl==2020.12.02',
-        'tqdm'
+        'tqdm',
+        'pyserial',
+        'paho-mqtt',
+        'vidstream'
     ]
-    
 )

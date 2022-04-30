@@ -1,6 +1,5 @@
 from pygments import console
 import requests
-import damp11113
 
 list = ['grade', 'clock', 'title', 'rannum', 'ranstr', 'ranuuid', 'mcserver', 'ip_port_check', 'ddos_attack', 'readtextweb',
         'loadfile', 'installpackage', 'readfile', 'readfileline', 'movefile', 'movefolder', 'copyfile', 'copyfolder', 'removefile', 'removefolder',
@@ -12,12 +11,12 @@ list = ['grade', 'clock', 'title', 'rannum', 'ranstr', 'ranuuid', 'mcserver', 'i
         'ranchoice', 'ranchoices', 'ranshuffle', 'ranuniform', 'ranrandint', 'ranrandrange', 'encrypt', 'decrypt', 'rankeygen', 'vlc_player',
         'mcstatus', 'cexit', 'pause', 'bin2str', 'str2bin', 'binary_send', 'binary_receive', 'typing', 'line_notify', 'timestamp','uuid2name', 'sound_receive',
         'sound_send', 'decryptext', 'encryptext', 'install_server', 'install_loader', 'install_optifine', 'install_mods', 'timer', 'ffmpeg_stream',
-        'writefile3', 'sizefolder', 'sizefile', 'list2str', 'byte2str', 'full_cpu', 'full_gpu', 'file_receive', 'file_send', 'writejson',
+        'writefile3', 'sizefolder', 'sizefile', 'list2str', 'byte2str', 'full_cpu', 'file_receive', 'file_send', 'writejson',
         'full_disk', 'byte2str', 'str2int', 'str2list', 'clip2frames', 'getallfolders', 'getallfiles', 'sort_files', 'ardstatus', 'sec2mph', 'pyversion',
-        'osversion', 'im2pixel']
+        'osversion', 'im2pixel', 'barcodegen', 'qrcodegen', 'BooleanArgs']
 
 ip = 'http://localhost'
-__version__ = 'V2022.3.29.8.13.0 DEV' # 2022/03/29 | 8 file (no check) | 130 function | dev version
+__version__ = 'V2022.4.30.8.12.9' # 2022/04/30 | 8 file (no check) | 131 function |
 
 def vercheck():
     try:

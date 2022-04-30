@@ -14,6 +14,10 @@ def readfileline(file, line):
     with open(file, 'r') as f:
         return f.readlines()[line]
 
+def readjson(file):
+    with open(f'{file}.json', 'r', encoding='utf-8') as f:
+        return json.load(f)
+
 #-----------------------------move---------------------------------------
 
 def movefile(file, to):
@@ -79,11 +83,8 @@ def writefileline(file, line, data):
             f.writelines(lines)
 
 def writejson(file, data):
-    with open(file, 'r+') as f:
-        _data = json.load(f)
-        _data.update(data)
-        f.seek(0)
-        json.dump(_data, f, indent=4)
+    with open(f'{file}.json', 'w') as f:
+        json.dump(data, f)
 
 
 #----------------------------------append-----------------------------------
