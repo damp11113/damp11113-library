@@ -1,10 +1,9 @@
-import os
 from mcstatus import *
 import json
 import requests
-import damp11113.network as network
-import damp11113.file as file
-import sys
+from . import base64decode
+import subprocess
+from mcrcon import MCRcon
 
 class mcstatus_exception(Exception):
     pass
@@ -18,17 +17,37 @@ class server_exeption(Exception):
 class install_exception(Exception):
     pass
 
+class rcon_exception(Exception):
+    pass
+
 #------------------------server------------------------------
+class mcserver:
+    def __init__(self, server='server.jar', java='java', ramuse='1024', nogui=True, noguipp=False):
+        self.serverf = server
+        self.java = java
+        self.ramuse = ramuse
+        self.nogui = nogui
+        self.noguipp = noguipp
 
-def mcserver(server, local='./', java='java', ramuse='1024'):
-    try:
-        print("Server started.")
-        os.chdir(local)
-        os.system(f'{java} -Xms{ramuse}M -Xmx{ramuse}M -jar {server}.')
-        print("Server stopped.")
-    except Exception as e:
-        raise server_exeption(e)
+    def start(self):
+        if self.nogui:
+            if self.noguipp:
+                self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} --nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            else:
+                self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)        
+        else:
+            self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf}', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    def stop(self):
+        self.command('stop')
+        self.s.communicate()
+
+    def command(self, command):
+        self.s.stdin.write(command + '\n')
+
+    def log(self):
+        return self.s.stdout.read()
+        
 #------------------get-uuid2name------------------
 
 class uuid2name:
@@ -67,6 +86,35 @@ class uuid2name:
             return requests.get(f"https://api.mojang.com/users/profiles/minecraft/{player_name}").text
         except Exception as e:
             raise uuid2name_exception(f"get mc uuid error: {e}")
+
+#----------------other api------------------
+
+def skin_url(uuid):
+    try:
+        r = requests.get(f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}")
+        base = json.loads(r.text)['properties'][0]['value']
+        # base64 to json
+        js = base64decode(base)
+        # json to dict
+        d = json.loads(js)
+        # get skin url
+        return d['textures']['SKIN']['url']
+    except Exception as e:
+        raise uuid2name_exception(f"skin url error: {e}")
+
+def mctimestamp(uuid):
+    try:
+        r = requests.get(f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}")
+        base = json.loads(r.text)['properties'][0]['value']
+        # base64 to json
+        js = base64decode(base)
+        # json to dict
+        d = json.loads(js)
+        # get skin url
+        return d['timestamp']
+    except Exception as e:
+        raise uuid2name_exception(f"error: {e}")
+
 
 #----------------------mcstatus------------------------
 
@@ -140,75 +188,29 @@ class mcstatus():
         except Exception as e:
             raise mcstatus_exception(f"query software mc status error: {e}")
 
+#----------------------Rcon------------------------
 
-# -----------------------install----------------------------
+class Rcon:
+    def __init__(self, ip, password, port=25575, tls=0, timeout=5):
+        self.ip = ip
+        self.port = port
+        self.password = password
+        self.rcon = MCRcon(host=ip, port=port, password=password, tlsmode=tls, timeout=timeout)
 
-class install_server():
-    def __init__(self) -> None:
-        pass
-
-    def paper(self, version, builds, file):
+    def connect(self):
         try:
-            network.loadfile(f'https://papermc.io/api/v2/projects/paper/versions/{version}/builds/{builds}/downloads/{file}', file)
-            mcserver('/', file, 'java', '1024')
-            file.writefile2('eula.txt', 'eula=true')
-            print("Paper installed.")
+            self.rcon.connect()
         except Exception as e:
-            raise install_exception(f"install paper error: {e}")
-        
-    def spigot(self, version):
+            raise rcon_exception(f"rcon connect error: {e}")
+
+    def send(self, command):
         try:
-            network.loadfile(f'https://download.getbukkit.org/spigot/spigot-{version}.jar', f'spigot-{version}.jar')
-            mcserver('/', f'spigot-{version}.jar', 'java', '1024')
-            file.writefile2('eula.txt', 'eula=true')
-            print("Spigot installed.")
+            return self.rcon.command(command)
         except Exception as e:
-            raise install_exception(f"install spigot error: {e}")
+            raise rcon_exception(f"rcon send error: {e}")
 
-class install_loader():
-    def __init__(self) -> None:
-        pass
-
-    def forge(self, version):
+    def disconnect(self):
         try:
-            network.loadfile(f'https://files.minecraftforge.net/maven/net/minecraftforge/forge/{version}/forge-{version}-installer.jar', f'forge-{version}-installer.jar')
-            os.system(f'java -jar forge-{version}-installer.jar --installClient')
-            print(f"Forge {version} installed.")
+            self.rcon.disconnect()
         except Exception as e:
-            raise install_exception(f"install forge error: {e}")
-
-    def fabric(self, loaderversion):
-        try:
-            network.loadfile(f'https://maven.fabricmc.net/net/fabricmc/fabric-installer/{loaderversion}/fabric-installer-{loaderversion}.jar', f'fabric-installer-{loaderversion}.jar')
-            os.system('java -jar fabric-installer-0.10.2.jar')
-            print(f"Fabric {loaderversion} installed.")
-        except Exception as e:
-            raise install_exception(f"install fabric error: {e}")
-
-def install_optifine(version):
-    try:
-        network.loadfile(f'https://optifine.net/downloadx?f={version}.jar&x=c034c1658159573187673e5157b8d593', f'{version}.jar')
-        os.system('java -jar OptiFine_1.8.9_HD_U_F5.jar')
-        print(f"Optifine {version} installed.")
-    except Exception as e:
-        raise install_exception(f"install optifine error: {e}")
-
-
-class install_mods():
-    def __init__(self) -> None:
-        pass
-
-    def download(self, mod):
-        try:
-            loading = '|'
-            load = requests.get(f'https://www.curseforge.com/minecraft/mc-mods/{mod}/files', stream=True)
-            for chunk in load.iter_content(chunk_size=1024):
-                if chunk:
-                    with open(f'{mod}.jar', 'wb') as f:
-                        f.write(chunk)
-                        sys.stdout.write(loading+'|')
-                        sys.stdout.flush()
-            sys.stdout.write('download complete!')
-            sys.stdout.flush()
-        except Exception as e:
-            raise install_exception(f"download mod error: {e}")
+            raise rcon_exception(f"rcon disconnect error: {e}")

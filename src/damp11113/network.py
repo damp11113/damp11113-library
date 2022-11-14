@@ -6,9 +6,11 @@ import requests
 import webbrowser
 import paho.mqtt.client as mqtt
 import time
-from damp11113.file import *
+from .file import *
 import youtube_dl
-import damp11113
+from . import bin2str, byte2str, str2bin
+import yt_dlp as youtube_dl2
+
 from vidstream import AudioSender, AudioReceiver
 
 class vc_exception(Exception):
@@ -39,7 +41,7 @@ def ip_port_check(ip, port):
 
 attack_num = 0
 
-def ddos_attack(target): #beta
+def http_ddos_attack(target): #beta
     while True:
         try:
             d = requests.get(target)
@@ -74,12 +76,12 @@ def installpackage(package):
     os.system(f'title install {package}')
     os.system(f'pip install {package}')
 
-# ydl_opts = {
-#     'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-#     'outtmpl': '%(title)s.%(ext)s'
-# }
+ydl_optss = {
+    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+    'outtmpl': '%(title)s.%(ext)s'
+}
 
-def ytload(ydl_opts, url):
+def ytload(url, ydl_opts=ydl_optss):
     try:
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
@@ -87,6 +89,13 @@ def ytload(ydl_opts, url):
         print("ytload error")
         pass
 
+def ytload2(url, ydl_opts=ydl_optss):
+    try:
+        with youtube_dl2.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except:
+        print("ytload error")
+        pass
 #----------------------------read------------------------------
 
 def readtextweb(url):
@@ -148,7 +157,7 @@ def binary_send(host, port, message):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((host, port))
-        s.sendall(bytes(damp11113.str2bin(message), 'utf-8'))
+        s.sendall(bytes(str2bin(message), 'utf-8'))
         s.close()
         print(f"binary send to {host}:{port}")
     except Exception as e:
@@ -195,7 +204,7 @@ def tcp_receive(host, port):
         data = conn.recv(1024)
         conn.close()
         print(f"tcp receive from {host}:{port}")
-        return damp11113.byte2str(data)
+        return byte2str(data)
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
 
@@ -206,7 +215,7 @@ def udp_receive(host, port):
         data, addr = s.recvfrom(1024)
         s.close()
         print(f"udp receive from {host}:{port}")
-        return damp11113.byte2str(data)
+        return byte2str(data)
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
 
@@ -216,10 +225,10 @@ def binary_receive(host, port):
         s.bind((host, port))
         s.listen(1)
         conn, addr = s.accept()
-        data = damp11113.bin2str(conn.recv(1024))
+        data = bin2str(conn.recv(1024))
         conn.close()
         print(f"binary receive from {host}:{port}")
-        return damp11113.byte2str(data)
+        return byte2str(data)
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
 
@@ -231,7 +240,7 @@ def file_receive(host, port, buffsize=4096, speed=0.0000001):
         conn, addr = s.accept()
         received = conn.recv(buffsize)
         filename = received.decode()
-        filesize = int(damp11113.byte2str(conn.recv(1024), decode='utf-16'))
+        filesize = int(byte2str(conn.recv(1024), decode='utf-16'))
         progress_bar = tqdm(total=filesize, unit='B', unit_scale=True, desc=f'Receiving {filename}')
         with open(filename, 'wb') as f:
             while True:

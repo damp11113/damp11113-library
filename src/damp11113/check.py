@@ -8,19 +8,22 @@ list = ['grade', 'clock', 'title', 'rannum', 'ranstr', 'ranuuid', 'mcserver', 'i
         'mqtt_publish', 'tcp_send', 'udp_send', 'mqtt_subscribe', 'tcp_receive', 'udp_receive', 'runngrok', 'flask_run', 'flask_run_debug', 'flask_run_ssl',
         'flask_run_debug_ssl', 'runwebshell', 'runwebshell_debug', 'runwebshell_ssl', 'runwebshell_debug_ssl', 'killngrok', 'killflask', 'killwebshell',
         'cnd', 'runvim', 'runnano', 'rungedit', 'runkate', 'kill', 'ytload', 'writefile2', 'unzip', 'comzip', 'clear', 'size', 'color',
-        'ranchoice', 'ranchoices', 'ranshuffle', 'ranuniform', 'ranrandint', 'ranrandrange', 'encrypt', 'decrypt', 'rankeygen', 'vlc_player',
+        'ranchoice', 'ranchoices', 'ranshuffle', 'ranuniform', 'ranrandint', 'ranrandrange', 'rankeygen', 'vlc_player',
         'mcstatus', 'cexit', 'pause', 'bin2str', 'str2bin', 'binary_send', 'binary_receive', 'typing', 'line_notify', 'timestamp','uuid2name', 'sound_receive',
-        'sound_send', 'decryptext', 'encryptext', 'install_server', 'install_loader', 'install_optifine', 'install_mods', 'timer', 'ffmpeg_stream',
+        'sound_send', 'timer', 'ffmpeg_stream',
         'writefile3', 'sizefolder', 'sizefile', 'list2str', 'byte2str', 'full_cpu', 'file_receive', 'file_send', 'writejson',
-        'full_disk', 'byte2str', 'str2int', 'str2list', 'clip2frames', 'getallfolders', 'getallfiles', 'sort_files', 'ardstatus', 'sec2mph', 'pyversion',
-        'osversion', 'im2pixel', 'barcodegen', 'qrcodegen', 'BooleanArgs']
+        'full_disk', 'byte2str', 'str2int', 'str2list', 'clip2frames', 'getallfolders', 'getallfiles', 'sort_files', 'sec2mph', 'pyversion',
+        'osversion', 'im2pixel', 'barcodegen', 'qrcodegen', 'BooleanArgs', 'tts', 'mbox', 'countline', 'base64decode', 'mctimestamp', 'skin_url', 'emb', 'Queue'
+        'Rcon', 'readbqrcode', 'emb2', 'get_size_unit', 'loading1', 'loading2', 'loading3', 'loading_custom', 'loading4', 'PIL2CV2', 'CV22PIL', 'image_levels',
+        'image2stripes', 'sizefolder3', 'echo', 'ranpix']
 
-ip = 'http://localhost'
-__version__ = 'V2022.4.30.8.12.9' # 2022/04/30 | 8 file (no check) | 131 function |
+
+ip = 'https://cdn.damp11113dev.tk'
+__version__ = '2022.11.14.8.14.3' # 2022/10/15 | 8 file (no check) | 151 function |
 
 def vercheck():
     try:
-        response = requests.get(f"{ip}/api/damp11113%20library/ver.txt")
+        response = requests.get(f"{ip}/file/text/damp11113libver.txt")
         if response.status_code == 404:
             return False
         elif response.status_code == 200:
@@ -34,7 +37,7 @@ def vercheck():
         return False
 def info(fullname=False, fullversion=False, funcscount=False, funcslist=False, copyright=False, author=False):
     if fullname:
-        return f'damp11113 library | {__version__} | author damp11113 | Copyright (c) 2021-2022 damp11113 All rights reserved. (MIT License) | {len(list)} functions |'
+        return f'damp11113 library | {__version__} | author damp11113 | Copyright (c) 2021 damp11113 All rights reserved. (MIT License) | {len(list)} functions |'
     if fullversion:
         return f'{__version__}'
     if funcscount:
@@ -42,7 +45,7 @@ def info(fullname=False, fullversion=False, funcscount=False, funcslist=False, c
     if funcslist:
         return f'{list}'
     if copyright:
-        return f'Copyright (c) 2021-2022 damp11113 All rights reserved. (MIT License)'
+        return f'Copyright (c) 2021 damp11113 All rights reserved. (MIT License)'
     if author:
         return f'damp11113'
     return f'damp11113  {__version__}'
@@ -58,22 +61,24 @@ def defcheck(use):
     return rech
 
 
-print(console.colorize("yellow", "SDK check update..."))
+print(console.colorize("yellow", "library check update..."))
 try:
-    response = requests.get(f"{ip}/api/damp11113%20library/ver.txt")
+    response = requests.get(f"{ip}/file/text/damp11113libver.txt")
     if response.status_code == 404:
-        print(f'{console.colorize("red", "check update failed. please try again")}')
-        print(f'{console.colorize("yellow", f"version: {__version__}")}')
+        print(f'{console.colorize("red", "check update failed. please try again (error 404)")}')
+        print(f'{console.colorize("yellow", f"library version current: {__version__}")}')
     elif response.status_code == 200:
         if response.text == __version__:
             print(f'{console.colorize("green", "no update available")}')
-            print(f'{console.colorize("green", f"SDK version: {__version__}")}')
+            print(f'{console.colorize("green", f"library version current: {__version__}")}')
         else:
             print(console.colorize("yellow", "update available"))
-            print(f'{console.colorize("yellow", f"version: {__version__}")}')
+            print(f'{console.colorize("green", f"library version current: {__version__}")}')
             print(f'{console.colorize("green", f"new: {response.text}")}')
     else:
-        pass
+        print(f'{console.colorize("red", f"check update failed. please try again (error {response.status_code})")}')
+        print(f'{console.colorize("yellow", f"library version current: {__version__}")}')
 
 except:
     print(console.colorize("red", "check update failed. please try again"), f'{__version__}')
+    print(f'{console.colorize("yellow", f"library version current: {__version__}")}')

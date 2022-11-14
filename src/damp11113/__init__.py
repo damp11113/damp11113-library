@@ -2,12 +2,21 @@ import time, sys
 from time import sleep
 from pygments import console
 from datetime import datetime
+import math
 from threading import Thread
 import platform
 import damp11113.randoms as rd
-from cryptography.fernet import Fernet
 import damp11113.file as file
-
+import ctypes
+import os
+from gtts import gTTS
+from playsound import playsound
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+import numpy as np
+from base64 import b64decode
+import natsort
 
 class time_exception(Exception):
     pass
@@ -42,20 +51,19 @@ def grade(number):
     else:
         return "F"
 
-def clock(display="%z %A %d %B %Y  %p %H:%M:%S"):
+def clock(display="%z %A %d %B %Y - %H:%M:%S"):
     x = datetime.now()
     clock = x.strftime(display) #"%z %A %d %B %Y  %p %H:%M:%S"
-    sleep(1)
     return clock
 
 def check(list, use):
     if use in list:
         print(f'[{console.colorize("green", "✔")}] {use}')
-        rech = 'True'
+        rech = True
 
     else:
         print(f'[{console.colorize("red", "❌")}] {use}')
-        rech = 'False'
+        rech = False
     return rech
 
 def timestamp2date(timestamp, display='%Y-%m-%d %H:%M:%S'):
@@ -107,30 +115,6 @@ def timestamp():
     now = datetime.now()
     return datetime.timestamp(now)
 
-def encryptext(text, key):
-    f = Fernet(bytes(key))
-    return f.encrypt(text.encode())
-
-def decryptext(text, key):
-    f = Fernet(bytes(key))
-    return f.decrypt(text.decode())
-
-class timer():
-    def __init__(self):
-        self.start = None
-
-    def start(self):
-        if self.start is None:
-            raise time_exception("Timer is running. use .stop() to stop it")
-        self.start = time.time()
-
-    def stop(self):
-        if self.start is None:
-            raise time_exception("Timer is not running. use .start() to start it")
-        elapsed = time.perf_counter() - self.start
-        self.start = None
-        return elapsed
-
 def list2str(list_):
     return '\n'.join(list_)
 
@@ -143,8 +127,15 @@ def str2int(string):
 def byte2str(b, decode='utf-8'):
     return b.decode(decode)
 
-def sort_files(file_list, reverse=False):
-    return sorted(file_list, key=lambda x: x.name, reverse=reverse)
+def sort_files(file_list ,reverse=False):
+    flist = []
+    for file in file_list:
+        flist.append(file)
+    return natsort.natsorted(flist, reverse=reverse)
+
+
+def base64decode(base):
+    return b64decode(base)
 
 def full_cpu(min=100, max=10000, speed=0.000000000000000001):
     _range = rd.rannum(min, max)
@@ -228,3 +219,76 @@ def osversion(fullos=False, fullversion=False, type=False, cuser=False, processo
 
     return platform.release()
 
+def mbox(title, text, style):
+    return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
+def tts(text, lang, play=True, name='tts.mp3', slow=False):
+    tts = gTTS(text=text, lang=lang, slow=slow, )
+    tts.save(name)
+    if play:
+        playsound(name)
+        file.removefile(name)
+
+textt = """Unhandled exception has occurred in your application.If you click\nContinue,the application will ignore this error and attempt to continue.\nIf you click Quit,the application will close immediately.\n"""
+
+def emb(info, details=None, text=textt, title='python'):
+    app = QApplication(sys.argv)
+    msg = QMessageBox()
+    # remove title icon
+    msg.setEscapeButton(QMessageBox.Close)
+    msg.setWindowIcon(QIcon())
+    msg.setIcon(QMessageBox.Critical)
+
+    msg.setText(text)
+    msg.setInformativeText(info)
+    msg.setWindowTitle(title)
+    if not details is None:
+        msg.setDetailedText(details)
+    msg.addButton(QPushButton('Continue'), QMessageBox.YesRole)
+    msg.addButton(QPushButton('Quit'), QMessageBox.NoRole)
+    retval = msg.exec_()
+
+    if retval == 0:
+        return True
+    else:
+        return False
+
+def emb2(info, details=None, text=textt, title='python'):
+    msg = QMessageBox()
+    # remove title icon
+    msg.setEscapeButton(QMessageBox.Close)
+    msg.setWindowIcon(QIcon())
+    msg.setIcon(QMessageBox.Critical)
+
+    msg.setText(text)
+    msg.setInformativeText(info)
+    msg.setWindowTitle(title)
+    if not details is None:
+        msg.setDetailedText(details)
+    msg.addButton(QPushButton('Continue'), QMessageBox.YesRole)
+    msg.addButton(QPushButton('Quit'), QMessageBox.NoRole)
+    retval = msg.exec_()
+
+    if retval == 0:
+        return True
+    else:
+        return False
+
+class Queue:
+    def __init__(self, queue):
+        self.queue = queue
+    def put(self, item):
+        self.queue.append(item)
+    def get(self):
+        r = self.queue[0]
+        self.queue.pop(0)
+        return r
+
+def get_size_unit(bytes):
+    for unit in ['', 'K', 'M', 'G', 'T', 'P']:
+        if bytes < 1024:
+            return f"{bytes:.2f} {unit}B"
+        bytes /= 1024
+
+def get_percent_completed(current, total):
+    return round((current * 100) / total)

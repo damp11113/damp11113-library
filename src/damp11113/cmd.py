@@ -52,5 +52,8 @@ def clear():
 def size(x, y):
     os.system('mode con: cols={} lines={}'.format(x, y))
 
+def echo(message='Hello world'):
+    os.system(f'echo {message}')
+
 def cmd(command='echo hello world!'):
     return os.system(command)

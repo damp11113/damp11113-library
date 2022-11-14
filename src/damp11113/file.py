@@ -2,12 +2,12 @@ import os
 import shutil
 import zipfile
 import json
-from cryptography.fernet import Fernet
+import psutil
 
 #-----------------------------read---------------------------------------
 
-def readfile(file):
-    with open(file, 'r') as f:
+def readfile(file, decode='utf-8'):
+    with open(file, 'r', encoding=decode) as f:
         return f.read()
 
 def readfileline(file, line):
@@ -15,7 +15,7 @@ def readfileline(file, line):
         return f.readlines()[line]
 
 def readjson(file):
-    with open(f'{file}.json', 'r', encoding='utf-8') as f:
+    with open(file, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 #-----------------------------move---------------------------------------
@@ -170,24 +170,6 @@ def comzip(file, to):
     with zipfile.ZipFile(file, 'w') as zip_ref:
         zip_ref.write(to)
 
-#--------------------------------------encrypt----------------------------------
-
-def encrypt(file, password):
-    with open(file, 'rb') as f:
-        data = f.read()
-    fernet = Fernet(bytes(password))
-    encrypted = fernet.encrypt(data)
-    with open(file, 'wb') as f:
-        f.write(encrypted)
-
-def decrypt(file, password):
-    with open(file, 'rb') as f:
-        data = f.read()
-    fernet = Fernet(bytes(password))
-    decrypted = fernet.decrypt(data)
-    with open(file, 'wb') as f:
-        f.write(decrypted)
-
 #----------------------------------size------------------------------------
 
 def sizefile(file):
@@ -209,7 +191,28 @@ def sizefolder(folder):
 
     return size / 1000000
 
+def sizefolder2(folder):
+    size = psutil.disk_usage(folder).used
+    return size / 1000000
+
+def sizefolder3(folder):
+    size = 0
+
+    for path, dirs, files in os.walk(folder):
+        for f in files:
+            fp = os.path.join(path, f)
+            size += os.path.getsize(fp)
+
+    return size
+
 #----------------------------------all-------------------------------------
 
 def allfiles(folder):
     return os.listdir(folder)
+
+#----------------------------------count-------------------------------------
+
+def countline(file, decode='utf-8'):
+    with open(file, 'r', encoding=decode) as f:
+        line = sum(1 for _ in f)
+    return line
