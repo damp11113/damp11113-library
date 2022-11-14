@@ -1,6 +1,6 @@
 damp11113-library
 ===============
-all in one functions
+A Utils library and Easy to using.
 
 Installing
 
