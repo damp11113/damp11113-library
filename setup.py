@@ -20,7 +20,7 @@ setup(
         "psutil",
         "python-vlc",
         "pafy",
-        "pycocotools @ git+https://github.com/damp11113/pafy2.git",
+        "pafy2 @ git+https://github.com/damp11113/pafy2.git",
         "ffmpeg-python",
         "opencv-python",
         "tqdm",
