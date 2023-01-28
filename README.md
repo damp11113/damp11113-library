@@ -6,7 +6,7 @@ Installing
 ===============
     pip install damp11113
     
-or (for get beta update)
+or
 
     pip install git+https://github.com/damp11113/damp11113-library.git
     
