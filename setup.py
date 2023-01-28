@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='damp11113',
-    version='2022.11.14.8.14.3',
+    version='2023.1.28.10.0.0',
     license='MIT',
     author='damp11113',
     author_email='damp51252@gmail.com',
@@ -19,7 +19,7 @@ setup(
         "python-vlc",
         "youtube_dl",
         "pafy",
-        "pafy 2 @ git+https://github.com/damp11113/pafy2.git",
+        "pafy2 @ git+https://github.com/damp11113/pafy2.git",
         "ffmpeg-python",
         "opencv-python",
         "tqdm",
