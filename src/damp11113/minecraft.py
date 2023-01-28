@@ -1,7 +1,7 @@
-from mcstatus import *
+from mcstatus import JavaServer
 import json
 import requests
-from . import base64decode
+from base64 import b64decode as base64decode
 import subprocess
 from mcrcon import MCRcon
 
@@ -120,7 +120,7 @@ def mctimestamp(uuid):
 
 class mcstatus():
     def __init__(self, ip):
-        self.server = MinecraftServer.lookup(ip)
+        self.server = JavaServer.lookup(ip)
 
     def raw(self):
         try:

@@ -1,7 +1,10 @@
+import libscrc
+import pyaudio
 import vlc
 import pafy, pafy2
 import ffmpeg
 import cv2
+import string
 import tqdm
 import numpy as np
 import qrcode
@@ -9,9 +12,9 @@ import barcode
 from barcode.writer import ImageWriter
 import os
 from PIL import Image
-from . import sort_files, get_size_unit
+from .utils import get_size_unit
 from .randoms import rannum
-from .file import sizefolder3, removefile, allfiles
+from .file import sizefolder3, removefile, allfiles, sort_files
 import yt_dlp as youtube_dl2
 from pyzbar import pyzbar
 import colorsys
@@ -291,6 +294,8 @@ def im2ascii(image, width=None, height=None, new_width=None, chars=None, pixelss
 
         if chars is None:
             chars = ["@", "J", "D", "%", "*", "P", "+", "Y", "$", ",", "."]
+            #chars = ['!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~']
+            #chars = list(string.printable)
 
         pixels = img.getdata()
         new_pixels = [chars[pixel//pixelss] for pixel in pixels]
@@ -309,6 +314,14 @@ def im2pixel(image, i_size, output):
     res = small_img.resize(img.size, Image.NEAREST)
     res.save(output)
 
+def repixpil(pilarray, i_size):
+    small_img = pilarray.resize(i_size, Image.BILINEAR)
+    res = small_img.resize(pilarray.size, Image.NEAREST)
+    return res
+
+def resizepil(pilarray, i_size):
+    return pilarray.resize(i_size, Image.ANTIALIAS)
+
 def qrcodegen(text, showimg=False, save_path='./', filename='qrcode', filetype='png', version=1, box_size=10, border=5, fill_color="black", back_color="white", error_correction=qrcode.constants.ERROR_CORRECT_L, fit=True):
     qr = qrcode.QRCode(
         version=version,
@@ -323,7 +336,6 @@ def qrcodegen(text, showimg=False, save_path='./', filename='qrcode', filetype='
         img.show()
     else:
         img.save(f'{save_path}{filename}.{filetype}')
-
 
 def barcodegen(number, type='ean13', showimg=False, save_path='./', filename='barcode', filetype='png', writer=ImageWriter()):
     barcode_img = barcode.get(type, number, writer=writer)
@@ -438,3 +450,127 @@ def CV22DPG(cv2_array):
     data = data.ravel()
     data = np.asfarray(data, dtype='f')
     return np.true_divide(data, 255.0)
+
+def PromptPayQRcode(account,one_time=True,country="TH",money="",currency="THB"):
+    """
+    text_qr(account,one_time=True,country="TH",money="",currency="THB")
+    account is phone number or  identification number.
+    one_time : if you use once than it's True.
+    country : TH
+    money : money (if have)
+    currency : THB
+    """
+    Version = "0002"+"01" # เวชั่นของ  PromptPay
+    if one_time==True: # one_time คือ ต้องการให้โค้ดนี้ครั้งเดียวหรือไม่
+        one_time="010212" # 12 ใช้ครั้งเดียว
+    else:
+        one_time="010211" # 11 ใช้ได้้หลายครั้ง
+    merchant_account_information="2937" # ข้อมูลผู้ขาย
+    merchant_account_information+="0016"+"A000000677010111" # หมายเลขแอปพลิเคชั่น PromptPay
+    if len(account)!=13: # ใช้บัญชีใช้เป็นเบอร์มือถือหรือไม่ ถ้าใช่ จำนวนจะไม่เท่ากับ 13
+        account=list(account)
+        merchant_account_information+="011300" # 01 หมายเลขโทรศัพท์ ความยาว 13 ขึ้นต้น 00
+        if country=="TH":
+            merchant_account_information+="66" # รหัสประเทศ 66 คือประเทศไทย
+        del account[0] # ตัดเลข 0 หน้าเบอร์ออก
+        merchant_account_information+=''.join(account)
+    else:
+        merchant_account_information+="02"+account.replace('-','') # กรณีที่ไม่รับมือถือ แสดงว่าเป็นเลขบัตรประชาชน
+    country="5802"+country # ประเทศ
+    if currency=="THB":
+        currency="5303"+"764" # "764"  คือเงินบาทไทย ตาม https://en.wikipedia.org/wiki/ISO_4217
+    if money!="": # กรณีกำหนดเงิน
+        check_money=money.split('.') # แยกจาก .
+        if len(check_money)==1 or len(check_money[1])==1: # กรณีที่ไม่มี . หรือ มีทศนิยมแค่หลักเดียว
+            money="54"+"0"+str(len(str(float(money)))+1)+str(float(money))+"0"
+        else:
+            money="54"+"0"+str(len(str(float(money))))+str(float(money)) # กรณีที่มีทศนิยมครบ
+    check_sum=Version+one_time+merchant_account_information+country+currency+money+"6304" # เช็คค่า check sum
+    check_sum1=hex(libscrc.ccitt(check_sum.encode("ascii"),0xffff)).replace('0x','')
+    if len(check_sum1)<4: # # แก้ไขข้อมูล check_sum ไม่ครบ 4 หลัก
+        check_sum1=("0"*(4-len(check_sum1)))+check_sum1
+    check_sum+=check_sum1
+    return check_sum.upper() # upper ใช้คืนค่าสตริงเป็นตัวพิมพ์ใหญ่
+
+def change_color_bit(image, output, colorbit=64):
+    img = Image.open(image)
+    a = img.convert("P", palette=Image.ADAPTIVE, colors=colorbit)
+    a.save(output)
+
+#-----------------pyaudio-effect-------------------------
+def stretch(snd_array, factor, window_size, h):
+    """ Stretches/shortens a sound, by some factor. """
+    phase = np.zeros(window_size)
+    hanning_window = np.hanning(window_size)
+    result = np.zeros(int(len(snd_array) / factor + window_size))
+    for i in np.arange(0, len(snd_array) - (window_size + h), h*factor):
+        i = int(i)
+        # Two potentially overlapping subarrays
+        a1 = snd_array[i: i + window_size]
+        a2 = snd_array[i + h: i + window_size + h]
+
+        # The spectra of these arrays
+        s1 = np.fft.fft(hanning_window * a1)
+        s2 = np.fft.fft(hanning_window * a2)
+
+        # Rephase all frequencies
+        phase = (phase + np.angle(s2/s1)) % 2*np.pi
+
+        a2_rephased = np.fft.ifft(np.abs(s2)*np.exp(1j*phase))
+        i2 = int(i/factor)
+        result[i2: i2 + window_size] += hanning_window*a2_rephased.real
+    return result.astype('int16')
+
+def speedx(sound_array, factor):
+    """ Multiplies the sound's speed by some `factor` """
+    indices = np.round( np.arange(0, len(sound_array), factor) )
+    indices = indices[indices < len(sound_array)].astype(int)
+    return sound_array[ indices.astype(int) ]
+
+def pitchshift(snd_array, n, window_size=2**13, h=2**11):
+    """ Changes the pitch of a sound by ``n`` semitones. """
+    factor = 2**(1.0 * n / 12.0)
+    stretched = stretch(snd_array, 1.0/factor, window_size, h)
+    return speedx(stretched[window_size:], factor)
+
+def speed_change(sound, speed=1.0):
+    """
+    To using
+
+    from pydub import AudioSegment
+
+    sound = AudioSegment.from_file(infile)
+
+    slow_sound = speed_change(sound, 0.850)
+
+    slow_sound.export(outfile, format="mp3")
+
+
+    """
+    # Manually override the frame_rate. This tells the computer how many
+    # samples to play per second
+    sound_with_altered_frame_rate = sound._spawn(sound.raw_data, overrides={
+         "frame_rate": int(sound.frame_rate * speed)
+      })
+     # convert the sound with altered frame rate to a standard frame rate
+     # so that regular playback programs will work right. They often only
+     # know how to play audio at standard frame rate (like 44.1k)
+    return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
+
+def getinputdevice():
+    lis = []
+    p = pyaudio.PyAudio()
+    info = p.get_host_api_info_by_index(0)
+    numdevices = info.get('deviceCount')
+    for i in range(0, numdevices):
+        if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
+            lis.append([i, p.get_device_info_by_host_api_device_index(0, i).get('name')])
+    return lis
+
+def EdgeDetection(cvarray):
+    # Convert to graycsale
+    img_gray = cv2.cvtColor(cvarray, cv2.COLOR_BGR2GRAY)
+    # Blur the image for better edge detection
+    img_blur = cv2.GaussianBlur(img_gray, (3, 3), 0)
+    edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)  # Canny Edge Detection
+    return edges

@@ -2,6 +2,7 @@ import random
 import string
 import uuid
 from key_generator.key_generator import generate
+from .convert import list2str2
 
 
 def rannum(number1, number2):
@@ -78,3 +79,24 @@ def rankeygen(min, max, seed=None):
             return generate(max_atom_len=max, min_atom_len=min, seed=seed).get_key()
         except ValueError:
             print("Please enter a key_type and key_length")
+
+def rancolor():
+    """RGB"""
+    return (rannum(1, 255), rannum(1, 255), rannum(1, 255))
+
+def rantextuplow(text):
+    nct = list(text)
+    ct = []
+    for i in nct:
+        r = rannum(1, 2)
+        if r == 1:
+            ct.append(str(i).lower())
+        elif r == 2:
+            ct.append(str(i).upper())
+    return list2str2(ct)
+
+def ranstruplow(charset):
+    return rantextuplow(ranstr(charset))
+
+def randistro():
+    return f'https://discord.gift/{ranstruplow(23)}'

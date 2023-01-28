@@ -1,4 +1,3 @@
-import os
 import socket
 import threading
 from tqdm import tqdm
@@ -8,7 +7,7 @@ import paho.mqtt.client as mqtt
 import time
 from .file import *
 import youtube_dl
-from . import bin2str, byte2str, str2bin
+from .convert import bin2str, byte2str, str2bin
 import yt_dlp as youtube_dl2
 
 from vidstream import AudioSender, AudioReceiver
@@ -301,7 +300,7 @@ def killwebshell():
 
 #----------------------line-api------------------------
 
-class line_notify():
+class line_notify:
     def __init__(self, token):
         self.token = token
 
@@ -336,3 +335,12 @@ def sound_receive(ip, port):
         receive_thread.start()
     except Exception as e:
         raise vc_exception(f"sound receive error: {e}")
+
+#----------------------checker------------------------
+
+def distrochecker(giftcode):
+    r = requests.get(f'https://discordapp.com/api/v9/entitlements/gift-codes/{giftcode}?with_application=false&with_subscription_plan=true')
+    if r == 200:
+        return ('ok', giftcode)
+    else:
+        return ('error', giftcode)

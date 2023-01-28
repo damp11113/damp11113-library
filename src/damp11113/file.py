@@ -2,6 +2,7 @@ import os
 import shutil
 import zipfile
 import json
+import natsort
 import psutil
 
 #-----------------------------read---------------------------------------
@@ -216,3 +217,11 @@ def countline(file, decode='utf-8'):
     with open(file, 'r', encoding=decode) as f:
         line = sum(1 for _ in f)
     return line
+
+#-------------------------------sort_files-------------------------
+
+def sort_files(file_list ,reverse=False):
+    flist = []
+    for file in file_list:
+        flist.append(file)
+    return natsort.natsorted(flist, reverse=reverse)

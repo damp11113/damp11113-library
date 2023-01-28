@@ -3,16 +3,17 @@ from shutil import get_terminal_size
 from threading import Thread
 from time import sleep
 
+"""
+A loader-like context manager
+
+Args:
+    desc (str, optional): The loader's description. Defaults to "Loading...".
+    end (str, optional): Final print. Defaults to "Done!".
+    timeout (float, optional): Sleep time between prints. Defaults to 0.1.
+"""
+
 class loading1:
     def __init__(self, desc="Loading...", end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]'):
-        """
-        A loader-like context manager
-
-        Args:
-            desc (str, optional): The loader's description. Defaults to "Loading...".
-            end (str, optional): Final print. Defaults to "Done!".
-            timeout (float, optional): Sleep time between prints. Defaults to 0.1.
-        """
         self.desc = desc
         self.end = end
         self.timeout = timeout
@@ -56,14 +57,6 @@ class loading1:
 
 class loading2:
     def __init__(self, desc="Loading...", end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]'):
-        """
-        A loader-like context manager
-
-        Args:
-            desc (str, optional): The loader's description. Defaults to "Loading...".
-            end (str, optional): Final print. Defaults to "Done!".
-            timeout (float, optional): Sleep time between prints. Defaults to 0.1.
-        """
         self.desc = desc
         self.end = end
         self.timeout = timeout
@@ -107,14 +100,6 @@ class loading2:
 
 class loading3:
     def __init__(self, desc="Loading...", end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]'):
-        """
-        A loader-like context manager
-
-        Args:
-            desc (str, optional): The loader's description. Defaults to "Loading...".
-            end (str, optional): Final print. Defaults to "Done!".
-            timeout (float, optional): Sleep time between prints. Defaults to 0.1.
-        """
         self.desc = desc
         self.end = end
         self.timeout = timeout
@@ -158,14 +143,6 @@ class loading3:
 
 class loading4:
     def __init__(self, desc="Loading...", end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]'):
-        """
-        A loader-like context manager
-
-        Args:
-            desc (str, optional): The loader's description. Defaults to "Loading...".
-            end (str, optional): Final print. Defaults to "Done!".
-            timeout (float, optional): Sleep time between prints. Defaults to 0.1.
-        """
         self.desc = desc
         self.end = end
         self.timeout = timeout
@@ -209,14 +186,6 @@ class loading4:
 
 class loading_custom:
     def __init__(self, desc="Loading...", end="[ ✔ ]", timeout=0.1, steps=None, fail='[ ❌ ]'):
-        """
-        A loader-like context manager
-
-        Args:
-            desc (str, optional): The loader's description. Defaults to "Loading...".
-            end (str, optional): Final print. Defaults to "Done!".
-            timeout (float, optional): Sleep time between prints. Defaults to 0.1.
-        """
         self.desc = desc
         self.end = end
         self.timeout = timeout
