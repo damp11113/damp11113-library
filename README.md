@@ -1,6 +1,14 @@
 damp11113-library
 ===============
-A Utils library and Easy to using.
+A Utils library and Easy to use.
+
+This is how to turn off check update and load all func
+
+    import os
+
+    os.environ["damp11113_load_all_module"] = "NO"
+    os.environ["damp11113_check_update"] = "NO"
+
 
 Installing
 ===============
