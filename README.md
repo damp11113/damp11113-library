@@ -14,7 +14,7 @@ Installing
 ===============
     pip install damp11113
     
-or
+or install from github (recommend) 
 
     pip install git+https://github.com/damp11113/damp11113-library.git
     
