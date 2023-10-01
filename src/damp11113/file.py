@@ -66,8 +66,8 @@ def writefile(file, data):
         f.write(data + '\n')
         f.close()
 
-def writefile2(file, data):
-    with open(file, 'w') as f:
+def writefile2(file, data, encode="utf-8"):
+    with open(file, 'w', encoding=encode) as f:
         f.write(data)
         f.close()
 

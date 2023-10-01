@@ -2,25 +2,17 @@ import operator
 import time, sys
 from functools import reduce
 from time import sleep
-from pygments import console
 from datetime import datetime
-import math
 from threading import Thread
-import platform
 import damp11113.randoms as rd
 import damp11113.file as file
 from inspect import getmembers, isfunction
 import ctypes
-import os
 from gtts import gTTS
 from playsound import playsound
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-import numpy as np
-from ast import literal_eval
-from base64 import b64decode
-import natsort
 
 def grade(number):
     score = int(number)
@@ -55,16 +47,6 @@ def clock(display="%z %A %d %B %Y - %H:%M:%S"):
     x = datetime.now()
     clock = x.strftime(display) #"%z %A %d %B %Y  %p %H:%M:%S"
     return clock
-
-def check(list, use):
-    if use in list:
-        print(f'[{console.colorize("green", "✔")}] {use}')
-        rech = True
-
-    else:
-        print(f'[{console.colorize("red", "❌")}] {use}')
-        rech = False
-    return rech
 
 class BooleanArgs:
     def __init__(self, args):
@@ -235,4 +217,86 @@ def get_all_func_in_module(module):
     for i in getmembers(module, isfunction):
         func.append(i[0])
     return func
+    
+def get_format_time(sec):
+    if sec >= 31557600: # years
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        y, d = divmod(d, 365)
+        return f"{y}y {d}d {h}h {m}m {s}s"
+    elif sec >= 2628002: # months
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        mo, d = divmod(d, 30)
+        return f"{mo}mo {d}d {h}h {m}m {s}s"
+    elif sec >= 604800:# weeks
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        w, d = divmod(d, 7)
+        return f"{w}w {d}d {h}h {m}m {s}s"
+    elif sec >= 86400: # days
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        return f"{d}d {h}h {m}m {s}s"
+    elif sec >= 3600:# hours
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        return f"{h}h {m}m {s}s"
+    elif sec >= 60: # minutes
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        return f"{m}m {s}s"
+    else:
+        return f"{sec}s"
 
+def addStringEveryN(original_string, add_string, n):
+    # Input validation
+    if not isinstance(original_string, str) or not isinstance(add_string, str):
+        raise TypeError("Both original_string and add_string must be strings.")
+    if not isinstance(n, int) or n <= 0:
+        raise ValueError("n must be a positive integer.")
+
+    chunks = [original_string[i:i+n] for i in range(0, len(original_string), n)]
+    result = add_string.join(chunks)
+    return result
+
+def findStringDifferencesInList(list1, list2):
+    # Convert the input lists to sets
+    set1 = set(list1)
+    set2 = set(list2)
+
+    # Find the differences between the sets
+    difference = list(set1.symmetric_difference(set2))
+
+    return difference
+
+def replaceEnterWithCrlf(input_string):
+    if '\n' in input_string:
+        input_string = input_string.replace('\n', '\r\n')
+    return input_string
+
+def scrollTextBySteps(text, scrollstep, scrollspace=10):
+    if len(text) < scrollspace:
+        raise ValueError("text is shorter than scroll space")
+    if len(text) < scrollstep:
+        raise ValueError("text is shorter than scroll step")
+
+    scrolled_text = text
+    scrolled = ""
+
+    for _ in range(0, scrollstep+1):
+        scrolled = f"{scrolled_text[:scrollspace]:<{scrollspace}}"
+
+        # Shift the text by one character to the right
+        scrolled_text = scrolled_text[1:] + scrolled_text[0]
+
+        # Add a space at the end if the text length is less than 8 characters
+        if len(scrolled_text) < scrollspace:
+            scrolled_text += " "
+
+    return scrolled

@@ -4,7 +4,6 @@ import vlc
 import pafy, pafy2
 import ffmpeg
 import cv2
-import string
 import tqdm
 import numpy as np
 import qrcode
@@ -16,8 +15,8 @@ from .utils import get_size_unit
 from .randoms import rannum
 from .file import sizefolder3, removefile, allfiles, sort_files
 import yt_dlp as youtube_dl2
+from pydub import AudioSegment
 from pyzbar import pyzbar
-import colorsys
 
 class vlc_player:
     def __init__(self):
@@ -319,9 +318,6 @@ def repixpil(pilarray, i_size):
     res = small_img.resize(pilarray.size, Image.NEAREST)
     return res
 
-def resizepil(pilarray, i_size):
-    return pilarray.resize(i_size, Image.ANTIALIAS)
-
 def qrcodegen(text, showimg=False, save_path='./', filename='qrcode', filetype='png', version=1, box_size=10, border=5, fill_color="black", back_color="white", error_correction=qrcode.constants.ERROR_CORRECT_L, fit=True):
     qr = qrcode.QRCode(
         version=version,
@@ -381,54 +377,6 @@ def PIL2CV2(pil_image):
 def CV22PIL(cv2_array):
     return Image.fromarray(cv2.cvtColor(cv2_array, cv2.COLOR_BGR2RGB))
 
-def image_high_pass(image, opath):
-    img = cv2.imread(image)
-    hpf = img - cv2.GaussianBlur(img, (21, 21), 3)+127
-    cv2.imwrite(opath, hpf)
-
-def image_levels(image, minv=0, maxv=255, gamma=1.0):
-    class Level(object):
-        def __init__(self, minv, maxv, gamma):
-            self.minv= minv/255.0
-            self.maxv= maxv/255.0
-            self._interval= self.maxv - self.minv
-            self._invgamma= 1.0/gamma
-
-        def new_level(self, value):
-            if value <= self.minv: return 0.0
-            if value >= self.maxv: return 1.0
-            return ((value - self.minv)/self._interval)**self._invgamma
-
-        def convert_and_level(self, band_values):
-            h, s, v= colorsys.rgb_to_hsv(*(i/255.0 for i in band_values))
-            new_v= self.new_level(v)
-            return tuple(int(255*i)
-                    for i
-                    in colorsys.hsv_to_rgb(h, s, new_v))
-    """Level the brightness of image (a PIL.Image instance)
-    All values ≤ minv will become 0
-    All values ≥ maxv will become 255
-    gamma controls the curve for all values between minv and maxv"""
-
-    if image.mode != "RGB":
-        raise ValueError("this works with RGB images only")
-
-    new_image= image.copy()
-
-    leveller= Level(minv, maxv, gamma)
-    levelled_data= [
-        leveller.convert_and_level(data)
-        for data in image.getdata()]
-    new_image.putdata(levelled_data)
-    return new_image
-
-def image2stripes(image, opath, radius=10, minv=0, maxv=255, gamma=1.0):
-    background = Image.open(image)
-    img = PIL2CV2(background)
-    hpf = img - cv2.GaussianBlur(img, ((radius * 10) +1, (radius * 10) +1), 1)+(9*20)
-    output = image_levels(CV22PIL(hpf), minv=minv, maxv=maxv, gamma=gamma)
-    output.save(opath)
-
 def ranpix(opath, size=(512, 512)):
     im = Image.new("RGB", size=size)
     width, height = im.size
@@ -451,7 +399,7 @@ def CV22DPG(cv2_array):
     data = np.asfarray(data, dtype='f')
     return np.true_divide(data, 255.0)
 
-def PromptPayQRcode(account,one_time=True,country="TH",money="",currency="THB"):
+def PromptPayQRcodeGen(account,one_time=True,country="TH",money="",currency="THB"):
     """
     text_qr(account,one_time=True,country="TH",money="",currency="THB")
     account is phone number or  identification number.
@@ -574,3 +522,119 @@ def EdgeDetection(cvarray):
     img_blur = cv2.GaussianBlur(img_gray, (3, 3), 0)
     edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)  # Canny Edge Detection
     return edges
+
+class Yolov3Detection:
+    def __init__(self, weightsfile, cfgfile, namesfile):
+        self.net = cv2.dnn.readNet(weightsfile, cfgfile)
+        self.classes = []
+        with open(namesfile, "r") as f:
+            self.classes = [line.strip() for line in f.readlines()]
+        self.input_size = (416, 416)
+        self.scale = 1/255.0
+
+    def detect(self, frame, textcolor=None, framecolor=None):
+        height, width = frame.shape[:2]
+
+        # Preprocess input image
+        blob = cv2.dnn.blobFromImage(frame, self.scale, self.input_size, swapRB=True, crop=False)
+
+        # Set input for YOLOv3 network
+        self.net.setInput(blob)
+
+        # Forward pass through YOLOv3 network
+        output_layers = self.net.getUnconnectedOutLayersNames()
+        layer_outputs = self.net.forward(output_layers)
+
+        # Initialize lists for bounding boxes, confidences, and class IDs
+        boxes = []
+        confidences = []
+        class_ids = []
+        info = []
+
+        # Loop over each output layer
+        for output in layer_outputs:
+            # Loop over each detection
+            for detection in output:
+                # Extract class ID and confidence
+                scores = detection[5:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+
+                # Filter out weak detections
+                if confidence > 0.5:
+                    # Compute bounding box coordinates
+                    center_x = int(detection[0] * width)
+                    center_y = int(detection[1] * height)
+                    w = int(detection[2] * width)
+                    h = int(detection[3] * height)
+                    x = int(center_x - w / 2)
+                    y = int(center_y - h / 2)
+
+                    # Add bounding box, confidence, and class ID to lists
+                    boxes.append([x, y, w, h])
+                    confidences.append(float(confidence))
+                    class_ids.append(class_id)
+
+        # Apply non-maximum suppression to remove overlapping boxes
+        indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+
+        # Draw final bounding boxes on image
+        if framecolor is None:
+            framecolor = np.random.uniform(0, 255, size=(len(self.classes), 3))
+        if textcolor is None:
+            textcolor = np.random.uniform(0, 255, size=(len(self.classes), 3))
+
+        if len(indices) > 0:
+            for i in indices.flatten():
+                box = boxes[i]
+                x, y, w, h = box
+                fcolor = framecolor[class_ids[i]]
+                tcolor = textcolor[class_ids[i]]
+                cv2.rectangle(frame, (x, y), (x + w, y + h), fcolor, 2)
+                text = f"{self.classes[class_ids[i]]}: {confidences[i]:.2f}"
+                cv2.putText(frame, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, tcolor, 2)
+                info.append([self.classes[class_ids[i]], confidences[i], x, y, w, h])
+
+        return frame, info
+
+def mp32pyaudio(file, convertpyaudio=False):
+    """
+    !!Warning, this conversion with this function is very loud. please turn down the volume. this function be beta!!
+
+    @param file: mp3 file, convertpyaudio=False
+    @return: data, sample_rate, audio_format, channels
+
+    ex.
+
+    data, sample_rate, audio_format, channels = mp32pyaudio(file_path, convertpyaudio=True)
+
+    # Create an instance of the PyAudio class
+    p = pyaudio.PyAudio()
+
+    # Open a PyAudio stream
+    stream = p.open(format=audio_format,
+                    channels=channels,
+                    rate=sample_rate,
+                    output=True)
+
+    audio_bytes = data.astype(np.float32).tobytes()
+
+    stream.write(audio_bytes)
+
+    """
+
+    # import file
+    audio = AudioSegment.from_mp3(file)
+
+    # get info
+    sample_rate = audio.frame_rate
+    audio_format = audio.sample_width
+    channels = audio.channels
+
+    # read samples
+    audio_bytes = np.array(audio.get_array_of_samples())
+    if convertpyaudio:
+        print("!!Warning, this conversion with this function is very loud. please turn down the volume. this function be beta!!")
+        audio_bytes = audio_bytes.astype(np.float32).reshape((-1, channels)).tobytes()
+
+    return audio_bytes, sample_rate, audio_format, channels

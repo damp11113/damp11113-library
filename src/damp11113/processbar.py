@@ -190,12 +190,10 @@ class loading_custom:
         self.end = end
         self.timeout = timeout
         self.faill = fail
-
+        self.steps = steps
         self._thread = Thread(target=self._animate, daemon=True)
         if steps is None:
             self.steps = ['[   ]', '[-  ]', '[-- ]', '[ --]', '[  -]', '[   ]', '[  -]', '[ --]', '[-- ]', '[-  ]']
-        else:
-            self.steps = steps
         self.done = False
         self.fail = False
 

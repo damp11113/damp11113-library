@@ -118,6 +118,12 @@ def mctimestamp(uuid):
 
 #----------------------mcstatus------------------------
 
+def mcstatusplayerparse(sample):
+    listplayer = []
+    for p in sample:
+        listplayer.append(p.name)
+    return listplayer
+
 class mcstatus():
     def __init__(self, ip):
         self.server = JavaServer.lookup(ip)

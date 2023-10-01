@@ -9,8 +9,8 @@ from .file import *
 import youtube_dl
 from .convert import bin2str, byte2str, str2bin
 import yt_dlp as youtube_dl2
-
-from vidstream import AudioSender, AudioReceiver
+import re
+import requests
 
 class vc_exception(Exception):
     pass
@@ -26,6 +26,16 @@ class receive_exception(Exception):
 
 class send_exception(Exception):
     pass
+
+
+def youtube_search(search, randomsearch=False):
+    formatUrl = requests.get(f'https://www.youtube.com/results?search_query={search}')
+    search_result = re.findall(r'watch\?v=(\S{11})', formatUrl.text)
+
+    if randomsearch:
+        return f"https://www.youtube.com/watch?v={search_result[0]}"
+    else:
+        return search_result
 
 #---------------------------ip--------------------------------
 
@@ -317,24 +327,6 @@ class line_notify:
             return r.text
         else:
             raise line_api_exception(f"LINE notify error: {r.status_code}")
-
-#----------------------vc--------------------------------
-
-def sound_send(ip, port):
-    try:
-        sender = AudioSender(ip, int(port))
-        sender_thread = threading.Thread(target=sender.start_stream)
-        sender_thread.start()
-    except Exception as e:
-        raise vc_exception(f"sound send error: {e}")
-
-def sound_receive(ip, port):
-    try:
-        receiver = AudioReceiver(ip, int(port))
-        receive_thread = threading.Thread(target=receiver.start_server)
-        receive_thread.start()
-    except Exception as e:
-        raise vc_exception(f"sound receive error: {e}")
 
 #----------------------checker------------------------
 

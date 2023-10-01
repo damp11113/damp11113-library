@@ -1,12 +1,20 @@
 import datetime
+from iso639 import languages
 from typing import List, Any
-
+import numpy as np
 
 def timestamp2date(timestamp, display='%Y-%m-%d %H:%M:%S'):
     return datetime.fromtimestamp(timestamp).strftime(display)
 
 def str2bin(s):
     return ''.join(format(ord(x), '08b') for x in s)
+
+def str2binnparray(s):
+    return np.array([int(bit) for bit in list(''.join(format(ord(x), '08b') for x in s))])
+
+def str2bin2(s):
+    binary_strings = [format(num, '08b') for num in s]
+    return ''.join(binary_strings)
 
 def bin2str(b):
     return ''.join(chr(int(b[i:i+8], 2)) for i in range(0, len(b), 8))
@@ -83,7 +91,7 @@ def morse2text(morse, morselang=None):
         text += morselang[code]
     return text
 
-# thank devxpy for this (ref. https://gist.github.com/devxpy/063968e0a2ef9b6db0bd6af8079dad2a)
+# thank devxpy for this code (ref. https://gist.github.com/devxpy/063968e0a2ef9b6db0bd6af8079dad2a)
 
 INSTRUMENTS = [
     'Acoustic Grand Piano',
@@ -221,11 +229,10 @@ NOTES_IN_OCTAVE = len(NOTES)
 
 errors = {
     'program': 'Bad input, please refer this spec-\n'
-               'http://www.electronics.dit.ie/staff/tscarff/Music_technology/midi/program_change.htm',
+               'https://www.recordingblogs.com/wiki/midi-program-change-message',
     'notes': 'Bad input, please refer this spec-\n'
-             'http://www.electronics.dit.ie/staff/tscarff/Music_technology/midi/midi_note_numbers_for_octaves.htm'
+             'https://newt.phys.unsw.edu.au/jw/notes.html'
 }
-
 
 def instrument2program(instrument: str) -> int:
     assert instrument in INSTRUMENTS, errors['program']
@@ -258,3 +265,136 @@ def note2number(note: str, octave: int) -> int:
     return note
 
 #------------------------------------------------------------------------
+
+def number2freq(midi_note: int):
+    return 2 ** ((midi_note - 69) / 12) * 440
+
+def langpart12fu(lang):
+    return languages.get(part1=lang).name
+
+def SI4713RDSPSMISC(stereo=False, artificialhead=False, compressed=False, dynamicpty=False, tp=False, pty=0, forceb=False, ta=False, ms=False):
+    # Construct the 16-bit value
+    value = (int(stereo) << 15) | (int(artificialhead) << 14) | (int(compressed) << 13) | (int(dynamicpty) << 12) | (int(forceb) << 11) | \
+            (int(tp) << 10) | (pty << 5) | (int(ta) << 4) | (int(ms) << 3)
+
+    # Convert the value to hex
+    hex_code = hex(value)[2:].zfill(4).upper()
+
+    return hex_code
+
+def number2roman(number):
+    if not isinstance(number, int) or not 0 < number < 1000000000000:
+        raise ValueError("Input must be an int only and between 1-999999999999 < 1000000000000")
+
+    roman_numerals = [
+        (1000000000000, "M̅"), (900000000000, "C̅M̅"), (500000000000, "D̅"), (400000000000, "C̅D̅"),
+        (100000000000, "C̅"), (90000000000, "X̅C̅"), (50000000000, "L̅"), (40000000000, "X̅L̅"),
+        (10000000000, "X̅"), (9000000000, "M̅X̅"), (5000000000, "V̅"), (4000000000, "M̅V̅"),
+        (1000000000, "M̅"), (900000000, "CM"), (500000000, "D"), (400000000, "CD"),
+        (100000000, "C"), (90000000, "XC"), (50000000, "L"), (40000000, "XL"),
+        (10000000, "X"), (9000000, "IX"), (5000000, "V"), (4000000, "IV"),
+        (1000000, "M"), (900000, "CM"), (500000, "D"), (400000, "CD"),
+        (100000, "C"), (90000, "XC"), (50000, "L"), (40000, "XL"),
+        (10000, "X"), (9000, "IX"), (5000, "V"), (4000, "IV"),
+        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+        (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+        (10, "X"), (9, "IX"), (5, "V"), (4, "IV"),
+        (1, "I")
+    ]
+
+    roman_numeral = ""
+    for value, symbol in roman_numerals:
+        while number >= value:
+            roman_numeral += symbol
+            number -= value
+
+    return roman_numeral
+
+def hammingEncode(data):
+    # Check if the input data is a binary string
+    if not all(bit in '01' for bit in data):
+        raise ValueError("Input data must be a binary string")
+
+    # Determine the number of parity bits required (m)
+    m = 0
+    while 2 ** m < len(data) + m + 1:
+        m += 1
+
+    # Calculate the number of total bits in the codeword
+    n = len(data) + m
+
+    # Initialize the encoded codeword with None for parity bit positions
+    codeword = [None] * n
+
+    # Copy data bits to their respective positions in the codeword
+    data_index = 0
+    for i in range(n):
+        if i + 1 not in [2 ** j for j in range(m)]:
+            codeword[i] = data[data_index]
+            data_index += 1
+
+    # Calculate parity bits using XOR
+    for i in range(m):
+        parity_bit_index = 2 ** i - 1
+        xor_result = 0
+        for j in range(parity_bit_index, n, 2 ** (i + 1)):
+            if codeword[j] is not None:
+                xor_result ^= int(codeword[j])
+        codeword[parity_bit_index] = str(xor_result)
+
+    return ''.join(codeword)
+
+def hammingDecode(codeword):
+    try:
+        # Check if the input codeword is a binary string
+        if not all(bit in '01' or bit == 'P' for bit in codeword):
+            raise ValueError("Input codeword must be a binary string with 'P' placeholders")
+
+        # Determine the number of parity bits (m)
+        m = 0
+        while 2 ** m < len(codeword) + 1:
+            m += 1
+
+        # Calculate syndrome bits
+        syndrome = ''
+        for i in range(m):
+            parity_bit_index = 2 ** i - 1
+            xor_result = 0
+            for j in range(parity_bit_index, len(codeword), 2 ** (i + 1)):
+                if codeword[j] != 'P':
+                    xor_result ^= int(codeword[j])
+            syndrome = str(xor_result) + syndrome
+
+        # Convert syndrome to error index
+        error_index = int(syndrome, 2)
+
+        if error_index == 0:
+            # No error
+            data_bits = []
+            for i in range(len(codeword)):
+                if i + 1 not in [2 ** j for j in range(m)]:
+                    data_bits.append(codeword[i])
+            data = ''.join(data_bits)
+        else:
+            # Correct the error
+            corrected_bit = '1' if codeword[error_index - 1] == '0' else '0'
+            corrected_codeword = codeword[:error_index - 1] + corrected_bit + codeword[error_index:]
+            data = hammingDecode(corrected_codeword)
+
+        return data
+    except:
+        return "0"
+
+def nparray2bin(nparray):
+    binary_string = ''.join(str(bit) for bit in nparray)
+    return binary_string
+
+# Convert binary string to an array of binary values
+def bin2nparray(binary_string):
+    binary_array = np.array([int(bit) for bit in binary_string], dtype=np.uint8)
+    return binary_array
+
+def sample2bar(sample, sensitivity=2, bar='|'):
+    peak = np.average(np.abs(sample)) * sensitivity
+    bars = bar * int(50 * peak / 2 ** 16)
+    return bars

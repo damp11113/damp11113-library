@@ -100,3 +100,17 @@ def ranstruplow(charset):
 
 def randistro():
     return f'https://discord.gift/{ranstruplow(23)}'
+
+def ranlossbin(codeword, error_rate):
+    # Convert the error rate to a number of errors to introduce
+    num_errors = int(len(codeword) * error_rate)
+
+    # Randomly select bit indices to flip
+    error_indices = random.sample(range(len(codeword)), num_errors)
+
+    # Flip the selected bits
+    received_codeword = list(codeword)
+    for index in error_indices:
+        received_codeword[index] = '1' if received_codeword[index] == '0' else '0'
+
+    return ''.join(received_codeword)
