@@ -12,6 +12,8 @@ os.environ["damp11113_check_update"] = "NO"
 
 Installing
 ===============
+~~install from PyPi~~ (no longer)
+
     pip install damp11113
     
 or install from github (recommend) 
