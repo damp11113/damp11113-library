@@ -1,3 +1,30 @@
+"""
+damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
+Copyright (C) 2021-2023 damp11113 (MIT)
+
+Visit https://github.com/damp11113/damp11113-library
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import os
 
 try:
@@ -6,14 +33,13 @@ except:
     os.environ["damp11113_load_all_module"] = "YES"
 
 if os.environ["damp11113_load_all_module"] == "YES":
-    from . import *
     from .file import *
     from .network import *
     from .info import *
     from .randoms import *
     from .processbar import *
     from .media import *
-    from .cmd import *
+    from .pyconsole import *
     from .convert import *
     from .imageps import *
     from .utils import *
@@ -22,15 +48,9 @@ if os.environ["damp11113_load_all_module"] == "YES":
     from .imageps import *
     from .DSP import *
     from .OPFONMW.dearpygui_animate import *
-    from .OPFONMW.pyFMRDSEncoder.Encoder import *
-    from .OPFONMW.pyFMRDSEncoder.DataGenerator import *
     from .logic import *
 
-
-
-
-ip = 'https://cdn.damp11113dev.tk'
-__version__ = '2023.10.1.22.0.0' # 2022/12/7 | 22 file (no __init__.py) | --- function |
+__version__ = '2023.11.18.19.0.0' # 2023/11/18 | 19 file (no __init__.py) | --- function |
 
 try:
     os.environ["damp11113_check_update"]
@@ -42,7 +62,7 @@ if os.environ["damp11113_check_update"] == "YES":
     import requests
     print(console.colorize("yellow", "library check update..."))
     try:
-        response = requests.get(f"{ip}/file/text/damp11113libver.txt")
+        response = requests.get(f"https://cdn.damp11113.xyz/file/text/damp11113libver.txt")
         if response.status_code == 200:
             if response.text == __version__:
                 print(f'{console.colorize("green", "no update available")}')

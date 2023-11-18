@@ -1,4 +1,33 @@
+"""
+damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
+Copyright (C) 2021-2023 damp11113 (MIT)
+
+Visit https://github.com/damp11113/damp11113-library
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import datetime
+import math
+
 from iso639 import languages
 from typing import List, Any
 import numpy as np
@@ -11,6 +40,15 @@ def str2bin(s):
 
 def str2binnparray(s):
     return np.array([int(bit) for bit in list(''.join(format(ord(x), '08b') for x in s))])
+
+def numpyarray2str(arr):
+    # Assuming arr is a NumPy array of binary values
+    binary_str = ''.join([str(bit) for bit in arr])
+    str_data = ''
+    for i in range(0, len(binary_str), 8):
+        byte = binary_str[i:i+8]
+        str_data += chr(int(byte, 2))
+    return str_data
 
 def str2bin2(s):
     binary_strings = [format(num, '08b') for num in s]
@@ -238,11 +276,9 @@ def instrument2program(instrument: str) -> int:
     assert instrument in INSTRUMENTS, errors['program']
     return INSTRUMENTS.index(instrument) + 1
 
-
 def program2instrument(program: int) ->  str:
     assert 1 <= program <= 128, errors['program']
     return INSTRUMENTS[program - 1]
-
 
 def number2note(number: int) -> list[str | int | Any]:
     octave = number // NOTES_IN_OCTAVE
@@ -251,7 +287,6 @@ def number2note(number: int) -> list[str | int | Any]:
     note = NOTES[number % NOTES_IN_OCTAVE]
 
     return [note, octave]
-
 
 def note2number(note: str, octave: int) -> int:
     assert note in NOTES, errors['notes']
@@ -398,3 +433,35 @@ def sample2bar(sample, sensitivity=2, bar='|'):
     peak = np.average(np.abs(sample)) * sensitivity
     bars = bar * int(50 * peak / 2 ** 16)
     return bars
+
+def calculate_shifted_frequency(center_freq, shift):
+    censhift = shift / 2
+    tone1 = center_freq - censhift
+    tone2 = center_freq + censhift
+    return tone1, tone2
+
+# Define dictionaries mapping letters and numbers to their phonetic representations
+phonetic_alphabet = {
+    'A': 'Alpha', 'B': 'Bravo', 'C': 'Charlie', 'D': 'Delta', 'E': 'Echo',
+    'F': 'Foxtrot', 'G': 'Golf', 'H': 'Hotel', 'I': 'India', 'J': 'Juliett',
+    'K': 'Kilo', 'L': 'Lima', 'M': 'Mike', 'N': 'November', 'O': 'Oscar',
+    'P': 'Papa', 'Q': 'Quebec', 'R': 'Romeo', 'S': 'Sierra', 'T': 'Tango',
+    'U': 'Uniform', 'V': 'Victor', 'W': 'Whiskey', 'X': 'X-ray', 'Y': 'Yankee', 'Z': 'Zulu',
+    '0': 'Zero', '1': 'One', '2': 'Two', '3': 'Three', '4': 'Four',
+    '5': 'Five', '6': 'Six', '7': 'Seven', '8': 'Eight', '9': 'Nine'
+}
+
+# Function to translate a word or number into phonetic representation
+def str2phonetic(input_string):
+    # Convert the input string to uppercase for consistency
+    input_string = input_string.upper()
+    # Translate each character to phonetic representation and join them
+    translated_string = ' '.join(phonetic_alphabet.get(char, char) for char in input_string)
+    return translated_string
+
+# Function to translate phonetic representation to a word or number
+def phonetic2str(phonetic):
+    # Split phonetic representation into words and translate each word back to character or number
+    words = phonetic.split()
+    translated_string = ''.join([key for word in words for key, value in phonetic_alphabet.items() if value == word])
+    return translated_string

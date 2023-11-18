@@ -1,11 +1,38 @@
+"""
+damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
+Copyright (C) 2021-2023 damp11113 (MIT)
+
+Visit https://github.com/damp11113/damp11113-library
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+import math
 import operator
 import time, sys
 from functools import reduce
 from time import sleep
 from datetime import datetime
 from threading import Thread
-import damp11113.randoms as rd
-import damp11113.file as file
+from .randoms import rannum
+from .file import removefile, readfile, writefile2, createfile
 from inspect import getmembers, isfunction
 import ctypes
 from gtts import gTTS
@@ -86,7 +113,7 @@ def timestamp():
     return datetime.timestamp(now)
 
 def full_cpu(min=100, max=10000, speed=0.000000000000000001):
-    _range = rd.rannum(min, max)
+    _range = rannum(min, max)
     class thread_class(Thread):
         def __init__(self, name, _range):
             Thread.__init__(self)
@@ -102,12 +129,12 @@ def full_cpu(min=100, max=10000, speed=0.000000000000000001):
         sleep(speed)
 
 def full_disk(min=100, max=10000,speed=0.000000000000000001):
-    ra = rd.rannum(min, max)
+    ra = rannum(min, max)
     for i in range(ra):
-        file.createfile('test.txt')
-        file.writefile2('test.txt', 'test')
-        file.readfile('test.txt')
-        file.removefile('test.txt')
+        createfile('test.txt')
+        writefile2('test.txt', 'test')
+        readfile('test.txt')
+        removefile('test.txt')
         sleep(speed)
         print(f'{i}/{ra}')
 
@@ -120,52 +147,56 @@ def tts(text, lang, play=True, name='tts.mp3', slow=False):
     tts.save(name)
     if play:
         playsound(name)
-        file.removefile(name)
+        removefile(name)
 
 textt = """Unhandled exception has occurred in your application.If you click\nContinue,the application will ignore this error and attempt to continue.\nIf you click Quit,the application will close immediately.\n"""
 
 def emb(info, details=None, text=textt, title='python'):
     app = QApplication(sys.argv)
     msg = QMessageBox()
-    # remove title icon
+
     msg.setEscapeButton(QMessageBox.Close)
-    msg.setWindowIcon(QIcon())
     msg.setIcon(QMessageBox.Critical)
 
     msg.setText(text)
     msg.setInformativeText(info)
     msg.setWindowTitle(title)
-    if not details is None:
+
+    if details is not None:
         msg.setDetailedText(details)
+
     msg.addButton(QPushButton('Continue'), QMessageBox.YesRole)
     msg.addButton(QPushButton('Quit'), QMessageBox.NoRole)
+
     retval = msg.exec_()
 
     if retval == 0:
         return True
     else:
-        return False
+        exit()
 
 def emb2(info, details=None, text=textt, title='python'):
     msg = QMessageBox()
-    # remove title icon
+
     msg.setEscapeButton(QMessageBox.Close)
-    msg.setWindowIcon(QIcon())
     msg.setIcon(QMessageBox.Critical)
 
     msg.setText(text)
     msg.setInformativeText(info)
     msg.setWindowTitle(title)
-    if not details is None:
+
+    if details is not None:
         msg.setDetailedText(details)
+
     msg.addButton(QPushButton('Continue'), QMessageBox.YesRole)
     msg.addButton(QPushButton('Quit'), QMessageBox.NoRole)
+
     retval = msg.exec_()
 
     if retval == 0:
         return True
     else:
-        return False
+        sys.exit()
 
 class Queue:
     def __init__(self, queue):
@@ -180,8 +211,22 @@ class Queue:
 def get_size_unit(bytes):
     for unit in ['', 'K', 'M', 'G', 'T', 'P']:
         if bytes < 1024:
-            return f"{bytes:.2f} {unit}B"
+            return f"{bytes:.2f} {unit}B/s"
         bytes /= 1024
+
+def get_size_unit2(number, unitp, persec=True, unitsize=1024, decimal=True, space=" "):
+    for unit in ['', 'K', 'M', 'G', 'T', 'P']:
+        if number < unitsize:
+            if decimal:
+                num = f"{number:.2f}"
+            else:
+                num = math.trunc(number)
+
+            if persec:
+                return f"{num}{space}{unit}{unitp}/s"
+            else:
+                return f"{num}{space}{unit}{unitp}"
+        number /= unitsize
 
 def get_percent_completed(current, total):
     return round((current * 100) / total)
@@ -254,6 +299,42 @@ def get_format_time(sec):
     else:
         return f"{sec}s"
 
+def get_format_time2(sec):
+    if sec >= 31557600: # years
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        y, d = divmod(d, 365)
+        return f"{y}y {d}d {str(h).zfill(2)}:{str(m).zfill(2)}:{str(sec).zfill(2)}"
+    elif sec >= 2628002: # months
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        mo, d = divmod(d, 30)
+        return f"{mo}mo {d}d {str(h).zfill(2)}:{str(m).zfill(2)}:{str(sec).zfill(2)}"
+    elif sec >= 604800:# weeks
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        w, d = divmod(d, 7)
+        return f"{w}w {d}d {str(h).zfill(2)}:{str(m).zfill(2)}:{str(sec).zfill(2)}"
+    elif sec >= 86400: # days
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        return f"{d}d {str(h).zfill(2)}:{str(m).zfill(2)}:{str(sec).zfill(2)}"
+    elif sec >= 3600:# hours
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        return f"{str(h).zfill(2)}:{str(m).zfill(2)}:{str(sec).zfill(2)}"
+    elif sec >= 60: # minutes
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        return f"{str(m).zfill(2)}:{str(sec).zfill(2)}"
+    else:
+        return f"00:{str(sec).zfill(2)}"
+
 def addStringEveryN(original_string, add_string, n):
     # Input validation
     if not isinstance(original_string, str) or not isinstance(add_string, str):
@@ -300,3 +381,78 @@ def scrollTextBySteps(text, scrollstep, scrollspace=10):
             scrolled_text += " "
 
     return scrolled
+
+def calculate_pi(n):
+    pi = 0.0
+    for k in range(n):
+        pi += 1.0 / (16 ** k) * (
+            4.0 / (8 * k + 1) - 2.0 / (8 * k + 4) - 1.0 / (8 * k + 5) - 1.0 / (8 * k + 6)
+        )
+    return pi
+
+def findMedian(list_numbers: list):
+    list_numbers.sort()
+    length = len(list_numbers)
+    if length % 2 == 0:
+        return (list_numbers[length // 2 - 1] + list_numbers[length // 2]) / 2
+    else:
+        return list_numbers[length // 2]
+
+def stemLeafPlot(data):
+    stems = {}
+    result = ""
+
+    for num in data:
+        stem = num // 10
+        leaf = num % 10
+        if stem not in stems:
+            stems[stem] = []
+        stems[stem].append(leaf)
+
+    for stem, leaves in sorted(stems.items()):
+        result += f"{stem} | {' '.join(map(str, sorted(leaves)))}\n"
+
+    return result
+
+def dotPlot(data, dot=". ", showlable=True):
+    max_value = max(data)
+    dot_plot = ''
+
+    for i in range(max_value, 0, -1):
+        row = ''
+        for value in data:
+            if value >= i:
+                row += dot  # Use a dot to represent the value
+            else:
+                row += ' ' * len(dot)  # Use empty space if the value is lower
+        dot_plot += row + '\n'
+
+    if showlable:
+        x_axis_labels = ' '.join(str(i) for i in range(1, len(data) + 1))
+        dot_plot += x_axis_labels + '\n'
+
+    return dot_plot
+
+def texttable(data):
+    table_str = ""
+
+    # Calculate the width of each column based on the maximum length of data in each column
+    col_width = [max(len(str(row[i])) for row in data) for i in range(len(data[0]))]
+
+    # Create table header
+    for i in range(len(data[0])):
+        table_str += str(data[0][i]).ljust(col_width[i]) + ' '
+    table_str += '\n'
+
+    # Create separator
+    for width in col_width:
+        table_str += '-' * width + ' '
+    table_str += '\n'
+
+    # Create table content
+    for row in data[1:]:
+        for i in range(len(row)):
+            table_str += str(row[i]).ljust(col_width[i]) + ' '
+        table_str += '\n'
+
+    return table_str

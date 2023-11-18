@@ -1,13 +1,41 @@
+"""
+damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
+Copyright (C) 2021-2023 damp11113 (MIT)
+
+Visit https://github.com/damp11113/damp11113-library
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import itertools
 import math
 import random
 import numpy as np
 import threading
 import scipy
+from scipy.signal import chirp
 
-from .convert import str2bin, str2binnparray
+from .convert import str2bin, str2binnparray, bin2str
 
-print("Please Using Float32 for this libray on DSP")
+print("Please Using Float32 for this library on DSP")
 
 class OQPSKModulator:
     class Settings:
@@ -255,6 +283,130 @@ def FSKEncoderV2(data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000):
     phi = np.cumsum(delta_phi)
     return np.sin(phi)
 
+
+def FSKEncoderV3(data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    byte_data = np.zeros(0)
+
+    for char in data:
+        for i in range(0, 8):
+            bit = (ord(char) >> i) & 1
+            if bit:
+                roffle = np.sin(2 * np.pi * tone2 * np.arange(samples_per_bit) / samplerate)
+                byte_data = np.append(byte_data, roffle * 0.8)
+            else:
+                sinewave = np.sin(2 * np.pi * tone1 * np.arange(samples_per_bit) / samplerate)
+                byte_data = np.append(byte_data, sinewave)
+
+    return byte_data
+
+def FSKEncoderV4(data, samplerate=48000, baudrate=100, center_freq=1500, freq_shift=500):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    byte_data = np.zeros(0)
+
+    for char in data:
+        for i in range(0, 8):
+            bit = (ord(char) >> i) & 1
+            if bit:
+                frequency = center_freq + freq_shift
+            else:
+                frequency = center_freq - freq_shift
+
+            sinewave = np.sin(2 * np.pi * frequency * np.arange(samples_per_bit) / samplerate)
+            byte_data = np.append(byte_data, sinewave)
+
+    return byte_data
+
+def FSKDecoder(signal, samplerate=48000, baudrate=100, center_freq=1500, freq_shift=500):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    num_samples = len(signal)
+
+    bit_stream = ''
+    i = 0
+
+    while i < num_samples:
+        sample = signal[i:i + samples_per_bit]
+        fft = np.fft.fft(sample)
+        freqs = np.fft.fftfreq(len(fft), 1 / samplerate)
+
+        # Find the peak frequency in the FFT
+        peak_frequency_index = np.argmax(np.abs(fft))
+        peak_frequency = np.abs(freqs[peak_frequency_index])
+
+        # Determine bit based on frequency deviation from center frequency
+        if peak_frequency > (center_freq + freq_shift / 2):
+            bit_stream += '1'
+        else:
+            bit_stream += '0'
+
+        i += samples_per_bit
+
+    # Convert bit stream to characters
+    decoded_data = ''.join([chr(int(bit_stream[i:i + 8], 2)) for i in range(0, len(bit_stream), 8)])
+
+    return decoded_data
+
+
+def FSKDecoderV2(encoded_data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000, threshold=0.5):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+
+    decoded_data = ""
+    i = 0
+
+    while i < len(encoded_data):
+        chunk = encoded_data[i:i + samples_per_bit]
+
+        # Compute Fourier Transform to identify frequencies in the chunk
+        fft_result = np.fft.fft(chunk)
+        freqs = np.fft.fftfreq(len(fft_result), 1 / samplerate)
+
+        # Find dominant frequencies in the chunk
+        tone1_indices = np.where((freqs >= tone1 - 50) & (freqs <= tone1 + 50))[0]
+        tone2_indices = np.where((freqs >= tone2 - 50) & (freqs <= tone2 + 50))[0]
+
+        if len(tone1_indices) > len(tone2_indices):
+            decoded_data += '0'
+        else:
+            decoded_data += '1'
+
+        i += samples_per_bit
+
+    # Convert binary string to ASCII characters
+    decoded_text = ""
+    for j in range(0, len(decoded_data), 8):
+        byte = decoded_data[j:j + 8]
+        decoded_text += chr(int(byte, 2))
+
+    return decoded_text
+
+def MFSKEncoder(data, samplerate=48000, baudrate=100, frequencies=[1000, 2000, 3000, 4000, 5000], symbol_length=2):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    # symbol_length Two bits at a time for 4 combinations with 3 frequencies
+    num_symbols = 2 ** symbol_length
+
+    encoded_data = np.zeros(0)
+
+    for char in data:
+        for i in range(0, 8, symbol_length):
+            bits = [(ord(char) >> j) & 1 for j in range(i, i + symbol_length)]
+            symbol_index = sum([bits[j - i] * (2 ** j) for j in range(i, i + symbol_length)])
+
+            # Ensure symbol_index is within the valid range of indices
+            symbol_index = symbol_index % num_symbols
+
+            # Ensure frequencies list has enough elements
+            if symbol_index < len(frequencies):
+                sinewave = np.sin(2 * np.pi * frequencies[symbol_index] * np.arange(samples_per_bit) / samplerate)
+                encoded_data = np.append(encoded_data, sinewave)
+            else:
+                print(f"Symbol index {symbol_index} out of range for frequencies list.")
+
+    return encoded_data
 def tonegen(freq, duration, samplerate=48000):
     t = np.linspace(0, duration, int(samplerate * duration), False)
     return np.sin(2 * np.pi * freq * t)
@@ -530,3 +682,230 @@ def RTEqualizer(sample_data, bands, sample_rate=48000):
         equalized_audio_data[:, channel] = equalized_channel_data
 
     return equalized_audio_data
+
+DTMF_FREQUENCIES = {
+    '1': (697, 1209),
+    '2': (697, 1336),
+    '3': (697, 1477),
+    '4': (770, 1209),
+    '5': (770, 1336),
+    '6': (770, 1477),
+    '7': (852, 1209),
+    '8': (852, 1336),
+    '9': (852, 1477),
+    '0': (941, 1336),
+    '*': (941, 1209),
+    '#': (941, 1477),
+    'A': (697, 1633),
+    'B': (770, 1633),
+    'C': (852, 1633),
+    'D': (941, 1633)
+}
+
+def generate_dtmf_tone(input_string, duration, sampling_rate=44100, amplitude=1.0, DTMF_freqlist=DTMF_FREQUENCIES):
+    dtmf_signal = np.array([])
+
+    for char in input_string:
+        char_upper = char.upper()
+        if char_upper in DTMF_freqlist:
+            frequencies = DTMF_freqlist[char_upper]
+            t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
+            tone = amplitude * np.sin(2 * np.pi * frequencies[0] * t) + amplitude * np.sin(
+                2 * np.pi * frequencies[1] * t)
+            dtmf_signal = np.concatenate([dtmf_signal, tone])
+
+    return dtmf_signal
+
+def MSKEncoder(data, samplerate=48000, baudrate=100, tone=1500):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    phase_shift = np.pi / 2  # Phase shift for MSK
+
+    byte_data = np.zeros(0)
+
+    for char in data:
+        for i in range(0, 8):
+            bit = (ord(char) >> i) & 1
+            phase = 0  # Initial phase
+
+            # MSK modulation
+            for j in range(samples_per_bit // 2):
+                if bit:
+                    phase += 2 * np.pi * tone / samplerate
+                else:
+                    phase -= 2 * np.pi * tone / samplerate
+
+                sample = np.sin(phase + phase_shift)
+                byte_data = np.append(byte_data, sample)
+
+    return byte_data
+
+def MSKEncoderv2(data, samplerate=48000, baudrate=100, tone=1500):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    phase_shift = np.pi / 2  # Phase shift for MSK
+
+    # Convert input string to binary representation
+    binary_data = np.unpackbits(np.array([ord(char) for char in data], dtype=np.uint8))
+
+    # Generate phase array
+    phase = np.cumsum(2 * np.pi * tone / samplerate * binary_data) + phase_shift
+
+    # Generate samples using sin function
+    samples = np.sin(phase)
+
+    return samples
+
+def ASKEncoder(data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    encoded_signal = np.array([])
+
+    for char in data:
+        for i in range(0, 8):
+            bit = (ord(char) >> i) & 1
+            if bit:
+                signal = np.sin(2 * np.pi * tone2 * np.arange(samples_per_bit) / samplerate)
+            else:
+                signal = np.sin(2 * np.pi * tone1 * np.arange(samples_per_bit) / samplerate)
+            encoded_signal = np.append(encoded_signal, signal)
+
+    return encoded_signal
+
+def ASKEncoderv2(data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    total_samples = len(data) * 8 * samples_per_bit
+    encoded_signal = np.empty(total_samples)
+
+    tone1_signal = np.sin(2 * np.pi * tone1 * np.arange(samples_per_bit) / samplerate)
+    tone2_signal = np.sin(2 * np.pi * tone2 * np.arange(samples_per_bit) / samplerate)
+    bit_mask = np.array([1 << i for i in range(8)])
+
+    index = 0
+    for char in data:
+        bits = np.bitwise_and(np.right_shift(np.array([ord(char)], dtype=np.uint8), bit_mask), 1)
+        for bit in bits:
+            if bit:
+                encoded_signal[index:index + samples_per_bit] = tone2_signal
+            else:
+                encoded_signal[index:index + samples_per_bit] = tone1_signal
+            index += samples_per_bit
+
+    return encoded_signal
+
+def PSKEncoder(data, samplerate=48000, baudrate=100, carrier_freq=1000):
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    byte_data = np.zeros(0)
+
+    for char in data:
+        for i in range(0, 8):
+            bit = (ord(char) >> i) & 1
+            phase_shift = 0 if bit == 0 else np.pi  # Phase shift for BPSK (0 or pi radians)
+            sinewave = np.sin(2 * np.pi * carrier_freq * np.arange(samples_per_bit) / samplerate + phase_shift)
+            byte_data = np.append(byte_data, sinewave)
+
+    return byte_data
+
+def PSKDecoder(signal, samplerate=48000, baudrate=100, phases=2, threshold=0):
+    samples_per_bit = int((1.0 / baudrate) * samplerate)
+    bits = []
+
+    for i in range(0, len(signal), samples_per_bit):
+        segment = signal[i:i+samples_per_bit]
+        phase = np.angle(np.sum(segment) / len(segment), deg=True)  # Calculate phase in degrees
+        decoded_bit = int(round(phase / (360 / phases))) % phases  # Map phase to 0 to phases-1
+        bits.append(decoded_bit)
+
+    decoded_data = "".join(str(bit) for bit in bits)
+    return bin2str(decoded_data)
+
+def BPSKEncoder(binary_data, bit_rate, fc, sample_rate):
+    T = 1 / bit_rate
+    t = np.linspace(0, T, int(sample_rate * T))
+    carrier = np.cos(2 * np.pi * fc * t)
+
+    modulated_signal = np.array([])
+    for bit in binary_data:
+        if bit == 0:
+            modulated_signal = np.append(modulated_signal, carrier)
+        else:
+            modulated_signal = np.append(modulated_signal, -carrier)
+
+    return modulated_signal
+
+def BPSKDecoder(modulated_signal, bit_rate, fc, sample_rate):
+    T = 1 / bit_rate
+    t = np.linspace(0, T, int(sample_rate * T))
+    carrier = np.cos(2 * np.pi * fc * t)
+
+    demodulated_signal = np.array([])
+    for i in range(0, len(modulated_signal), len(t)):
+        dot_product = np.dot(modulated_signal[i:i + len(t)], carrier)
+        if dot_product > 0:
+            demodulated_signal = np.append(demodulated_signal, 0)
+        else:
+            demodulated_signal = np.append(demodulated_signal, 1)
+
+    return demodulated_signal.astype(int)
+
+def OFDMEncoder(data, samplerate=48000, subcarrier_frequency=1000, cyclic_prefix_length=0.25):
+    symbol_duration = 1 / subcarrier_frequency  # Symbol duration in seconds
+    subcarrier_spacing = 1 / symbol_duration  # Subcarrier spacing in Hz
+    symbol_length = int(symbol_duration * samplerate)  # Length of each OFDM symbol in samples
+    cyclic_prefix_samples = int(cyclic_prefix_length * symbol_length)  # Length of cyclic prefix in samples
+
+    encoded_symbols = []
+    for char in data:
+        binary_data = format(ord(char), '08b')  # Convert character to 8-bit binary representation
+        for i in range(0, 8, 2):
+            bit_pair = binary_data[i:i + 2]
+            if bit_pair == '00':
+                subcarrier_frequency_i = subcarrier_frequency
+            elif bit_pair == '01':
+                subcarrier_frequency_i = subcarrier_frequency + subcarrier_spacing
+            elif bit_pair == '10':
+                subcarrier_frequency_i = subcarrier_frequency + 2 * subcarrier_spacing
+            else:
+                subcarrier_frequency_i = subcarrier_frequency + 3 * subcarrier_spacing
+
+            subcarrier = np.sin(2 * np.pi * subcarrier_frequency_i * np.arange(symbol_length) / samplerate)
+            symbol_with_prefix = np.concatenate((subcarrier[-cyclic_prefix_samples:], subcarrier))
+            encoded_symbols.append(symbol_with_prefix)
+
+    transmitted_signal = np.concatenate(encoded_symbols)
+    return transmitted_signal
+
+def OFDMDecoder(received_signal, samplerate=48000, subcarrier_frequency=1000, cyclic_prefix_length=0.25):
+    symbol_duration = 1 / subcarrier_frequency
+    subcarrier_spacing = 1 / symbol_duration
+    symbol_length = int(symbol_duration * samplerate)
+    cyclic_prefix_samples = int(cyclic_prefix_length * symbol_length)
+
+    ofdm_symbols = []
+    for i in range(0, len(received_signal), symbol_length + cyclic_prefix_samples):
+        symbol_with_prefix = received_signal[i:i + symbol_length + cyclic_prefix_samples]
+        symbol_without_prefix = symbol_with_prefix[cyclic_prefix_samples:]
+        ofdm_symbols.append(symbol_without_prefix)
+
+    decoded_data = ""
+    for symbol in ofdm_symbols:
+        subcarrier_fft = np.fft.fft(symbol)
+        subcarrier_magnitudes = np.abs(subcarrier_fft[1:int(symbol_length / 2)])  # Exclude DC component
+        subcarrier_indices = np.argsort(subcarrier_magnitudes)[-2:] + 1  # Get the indices of the two largest subcarriers
+        bit_pair = ""
+        for index in subcarrier_indices:
+            # Determine bit pair based on subcarrier indices
+            if index == int(subcarrier_frequency / subcarrier_spacing) + 1:
+                bit_pair += "00"
+            elif index == int((subcarrier_frequency + subcarrier_spacing) / subcarrier_spacing) + 1:
+                bit_pair += "01"
+            elif index == int((subcarrier_frequency + 2 * subcarrier_spacing) / subcarrier_spacing) + 1:
+                bit_pair += "10"
+            else:
+                bit_pair += "11"
+        decoded_char = chr(int(bit_pair, 2))
+        decoded_data += decoded_char
+
+    return decoded_data

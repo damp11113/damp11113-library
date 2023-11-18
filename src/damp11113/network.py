@@ -1,7 +1,33 @@
+"""
+damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
+Copyright (C) 2021-2023 damp11113 (MIT)
+
+Visit https://github.com/damp11113/damp11113-library
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import socket
-import threading
+import traceback
 from tqdm import tqdm
-import requests
 import webbrowser
 import paho.mqtt.client as mqtt
 import time
@@ -11,6 +37,8 @@ from .convert import bin2str, byte2str, str2bin
 import yt_dlp as youtube_dl2
 import re
 import requests
+from .utils import get_size_unit, emb
+from .processbar import LoadingProgress, steps5
 
 class vc_exception(Exception):
     pass
@@ -65,21 +93,31 @@ def http_ddos_attack(target): #beta
 #-------------------------download---------------------------
 
 def loadfile(url, filename):
+    progress = LoadingProgress(desc=f'loading file from {url}', steps=steps5, unit="B", shortunitsize=1024, shortnum=True)
+    progress.start()
     try:
-        # request get file size
-        r = requests.get(url)
+        progress.desc = f'Downloading {filename} from {url}'
+        progress.status = "Connecting..."
+        r = requests.get(url, stream=True)
+        progress.desc = f'Downloading {filename} from {url}'
+        progress.status = "Starting..."
         tsib = int(r.headers.get('content-length', 0))
         bs = 1024
-        progress = tqdm(total=tsib, unit='B', unit_scale=True, desc=filename)
+        progress.total = tsib
+        progress.desc = f'Downloading {filename} from {url}'
+        progress.status = "Downloading..."
         with open(filename, 'wb') as f:
             for chunk in r.iter_content(chunk_size=bs):
                 progress.update(len(chunk))
                 f.write(chunk)
-        progress.close()
-        if tsib != 0 and progress.n != tsib:
-            print('ERROR, something went wrong')
+        progress.status = "Downloaded"
+        progress.end = f"[ ✔ ] Downloaded {filename} from {url}"
+        progress.stop()
     except Exception as e:
-        print(f'ERROR: {e}')
+        progress.status = "Error"
+        progress.faill = f"[ ❌ ] Failed to download {filename} from {url} | " + str(e)
+        progress.stopfail()
+        emb(str(e), traceback.print_exc())
 
 def installpackage(package):
     os.system(f'title install {package}')

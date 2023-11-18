@@ -17,7 +17,7 @@ setup(
     long_description_content_type='text/markdown',  # Specify that the long description is in Markdown format
     install_requires=[
         "dearpygui",
-        "discord.py",
+        "pywin32",
         "iso-639",
         "numpy",
         "scipy",
@@ -48,7 +48,9 @@ setup(
         "six",
         "key-generator",
         "PyQt5",
-        "gTTS"
+        "gTTS",
+        "win32gui",
+        "comtypes"
     ],
     dependency_links=[
         'git+https://github.com/damp11113/pafy2.git#egg=pafy2'
