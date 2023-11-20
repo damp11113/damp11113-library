@@ -2,6 +2,10 @@ damp11113-library
 ===============
 A Utils library and Easy to use.
 
+If feature in wiki haven't in library that is a preview feature. Please wait for new update.
+
+If the library has bugs. Please new issue.
+
 This is how to turn off check update and load all func
 ```py
 import os
