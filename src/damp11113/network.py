@@ -56,11 +56,11 @@ class send_exception(Exception):
     pass
 
 
-def youtube_search(search, randomsearch=False):
+def youtube_search(search, firstresult=True):
     formatUrl = requests.get(f'https://www.youtube.com/results?search_query={search}')
     search_result = re.findall(r'watch\?v=(\S{11})', formatUrl.text)
 
-    if randomsearch:
+    if firstresult:
         return f"https://www.youtube.com/watch?v={search_result[0]}"
     else:
         return search_result

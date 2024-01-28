@@ -142,3 +142,119 @@ class BrainfuckInterpreter:
             code_pointer += 1
 
         return self.output
+
+#------------------------------------------------------------------------------------------------------
+
+class RangeEncoder:
+    def __init__(self, low=0, high=0xFFFFFFFF):
+        self.low = low
+        self.high = high
+        self.buffer = 0
+        self.bits_to_follow = 0
+        self.output = bytearray()  # Store the encoded bytes here
+
+    def encode(self, symbol_freqs, symbol):
+        symbol = chr(symbol)  # Convert the byte symbol to a string
+        total_symbols = sum(symbol_freqs.values())
+        cumulative_freq = 0
+        low_range = 0
+        high_range = 0xFFFFFFFF
+
+        for sym, freq in symbol_freqs.items():
+            if sym < symbol:  # Compare as strings
+                cumulative_freq += freq
+
+        for sym, freq in symbol_freqs.items():
+            if sym == symbol:  # Compare as strings
+                break
+            low_range = self.scale(low_range, high_range, cumulative_freq, total_symbols)
+            high_range = self.scale(low_range, high_range, cumulative_freq + freq, total_symbols)
+            cumulative_freq += freq
+
+        self.low = low_range
+        self.high = high_range
+
+        while True:
+            if ((self.low & 0x80000000) == (self.high & 0x80000000)):
+                self.output_bit((self.low & 0x80000000) >> 31)
+                while self.bits_to_follow > 0:
+                    self.output_bit(~(self.low >> 31) & 1)
+                    self.bits_to_follow -= 1
+            elif (self.low & 0x40000000) and not (self.high & 0x40000000):
+                self.bits_to_follow += 1
+                self.low &= 0x3FFFFFFF
+                self.high |= 0x40000000
+            else:
+                break
+            self.low = (self.low << 1) & 0xFFFFFFFF
+            self.high = ((self.high << 1) | 1) & 0xFFFFFFFF
+
+    def scale(self, low, high, start, end):
+        return low + ((high - low) * start) // end
+
+    def output_bit(self, bit):
+        self.buffer = (self.buffer << 1) | bit
+        while self.buffer >= 256:
+            self.output.append(self.buffer // 256)
+            self.buffer %= 256
+
+    def finish(self):
+        self.bits_to_follow += 1
+        if self.low < 0x40000000:
+            self.output_bit(0)
+        else:
+            self.output_bit(1)
+        self.output.append(self.buffer // 256)
+        return bytes(self.output)
+
+class RangeDecoder:
+    def __init__(self, encoded_data, low=0, high=0xFFFFFFFF):
+        self.code = 0
+        self.low = low
+        self.high = high
+        self.input = bytearray(encoded_data)  # Convert input to bytearray
+        self.index = 0
+
+        for _ in range(4):
+            self.code = (self.code << 8) | self.get_next_byte()
+
+    def get_next_byte(self):
+        if self.index < len(self.input):
+            byte = self.input[self.index]
+            self.index += 1
+            return byte
+        return 0  # If input ends, return 0 or adjust handling as needed
+
+    def decode(self, symbol_freqs):
+        total_symbols = sum(symbol_freqs.values())
+        cumulative_freq = 0
+        range_size = 0xFFFFFFFF
+
+        symbol = None
+
+        for i in range(32):
+            range_size = (self.high - self.low + 1) // total_symbols
+
+            for sym, freq in symbol_freqs.items():
+                low_range = cumulative_freq * range_size
+                high_range = (cumulative_freq + freq) * range_size - 1
+
+                if low_range <= self.code <= high_range:
+                    self.low = low_range
+                    self.high = high_range
+                    symbol = sym
+                    break
+
+                cumulative_freq += freq
+
+            if symbol is not None:
+                break
+
+            bit = 0
+            if (self.code & 0x80000000) != 0:
+                bit = 1
+            self.code = ((self.code << 1) & 0xFFFFFFFF) | self.get_next_byte()
+            self.low = (self.low << 1) & 0xFFFFFFFF
+            self.high = ((self.high << 1) | 1) & 0xFFFFFFFF
+
+        return symbol

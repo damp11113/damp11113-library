@@ -31,6 +31,8 @@ import requests
 from base64 import b64decode as base64decode
 import subprocess
 from mcrcon import MCRcon
+import socket
+import struct
 
 class mcstatus_exception(Exception):
     pass
@@ -221,6 +223,52 @@ class mcstatus:
         except Exception as e:
             raise mcstatus_exception(f"query software mc status error: {e}")
 
+class mcstatusv2:
+    def __init__(self, ip, port=25565):
+        """
+        To use visit https://chat.openai.com/share/966ad89a-3785-4d94-a4cc-7cb05c73bab3
+        """
+        self.ip = ip
+        self.port = port
+
+    def _send_receive(self, payload):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
+
+        try:
+            sock.connect((self.ip, self.port))
+            sock.sendall(payload)
+            data = sock.recv(4096)
+            return data
+        except socket.timeout:
+            raise mcstatus_exception("Connection timed out")
+        except Exception as e:
+            raise mcstatus_exception(f"Error: {e}")
+        finally:
+            sock.close()
+
+    def _parse_status(self, data):
+        length = data[0]
+        data = data[1:length+1]
+        return json.loads(data.decode('utf-8'))
+
+    def _get_status(self):
+        payload = b'\x00\x00'  # Packet for getting status
+        payload += bytes([len(self.ip)]) + self.ip.encode('utf-8')  # Append server address
+        payload += bytes.fromhex('{:04x}'.format(self.port))  # Append server port
+        payload += b'\x01'  # Protocol version
+
+        response = self._send_receive(bytes([len(payload)]) + payload)
+        return response
+
+    def status(self):
+        try:
+            response = self._get_status()
+            parsed_status = self._parse_status(response)
+            return parsed_status
+        except mcstatus_exception as e:
+            raise mcstatus_exception(f"Error parsing status: {e}")
+
 #----------------------Rcon------------------------
 
 class Rcon:
@@ -247,3 +295,30 @@ class Rcon:
             self.rcon.disconnect()
         except Exception as e:
             raise rcon_exception(f"rcon disconnect error: {e}")
+
+class RconV2:
+    def __init__(self, host, port, password):
+        self.host = host
+        self.port = port
+        self.password = password
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connect()
+
+    def connect(self):
+        self.sock.connect((self.host, self.port))
+        packet = struct.pack('<iii', 0, 0, 2) + self.password.encode('utf-8') + b'\x00\x00'
+        self.sock.send(struct.pack('<i', len(packet)) + packet)
+        size, id, type = struct.unpack('<iii', self.sock.recv(12))
+        response = self.sock.recv(size - 8).decode('utf-8')
+        if id == -1:
+            raise RuntimeError(f"Failed to authenticate: {response.strip()}")
+
+    def send_command(self, command):
+        command_packet = struct.pack('<iii', 1, 2, 2) + command.encode('utf-8') + b'\x00\x00'
+        self.sock.send(struct.pack('<i', len(command_packet)) + command_packet)
+        size, id, type = struct.unpack('<iii', self.sock.recv(12))
+        response = self.sock.recv(size - 8).decode('utf-8')
+        return response.strip()
+
+    def close(self):
+        self.sock.close()

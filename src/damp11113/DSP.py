@@ -27,215 +27,12 @@ SOFTWARE.
 
 import itertools
 import math
-import random
 import numpy as np
-import threading
 import scipy
 from scipy.signal import chirp
-
 from .convert import str2bin, str2binnparray, bin2str
 
 print("Please Using Float32 for this library on DSP")
-
-class OQPSKModulator:
-    class Settings:
-        def __init__(self):
-            self.bitrate = 18500
-            self.carrier_freq = 8000
-            self.alpha = 0.75
-            self.max_bit_buffer_size = 40000
-
-    def __init__(self, pDspGen):
-        self.pDspGen = pDspGen
-        self.pWaveTableCarrier = WaveTable(pDspGen, 1000)
-        self.pWaveTableSymbol = WaveTable(pDspGen, 200)
-        self.dscabpf = FastFIRFilter()
-        self.buffer = []
-        self.buffer_head = 0
-        self.buffer_tail = 0
-        self.buffer_used = 0
-        self.buffer_size = 0
-        self.askedformoredata = False
-        self.spooling = False
-        self.symbol_this = 0
-        self.symbol_next = 0
-        self.fir_re = FastFIRFilter()
-        self.fir_im = FastFIRFilter()
-        self.settings = self.Settings()
-        self.buffer_mutex = threading.Lock()  # Use threading.Lock() for thread synchronization
-        self.RefreshSettings()
-
-    def LoadBits(self, bits):
-        try:
-            self.buffer_mutex.acquire()
-            if self.buffer_used + len(bits) >= self.buffer_size:
-                print("OQPSKModulator::LoadBits buffer overflow!!: buffer_head=", self.buffer_head, " buffer_tail=",
-                      self.buffer_tail,
-                      " buffer_used=", self.buffer_used, " buffer_size=", self.buffer_size)
-                self.askedformoredata = False
-                return False
-
-            self.askedformoredata = False
-            for bit in bits:
-                self.buffer.append(bit)
-                self.buffer_head += 1
-                self.buffer_head %= self.buffer_size
-                self.buffer_used += 1
-
-        finally:
-            self.buffer_mutex.release()
-
-        return True
-
-    def StartSpooling(self):
-        try:
-            self.buffer_mutex.acquire()
-            self.buffer_head = 0
-            self.buffer_tail = 0
-            self.buffer_used = 0
-            self.buffer_size = len(self.buffer)
-            self.askedformoredata = True
-            tmpbuffer_size = self.buffer_size
-            self.spooling = True
-
-        finally:
-            self.buffer_mutex.release()
-
-        self.CallForMoreData(tmpbuffer_size)
-
-    def StopSpooling(self):
-        self.buffer_mutex.locked()
-        self.spooling = False
-        self.buffer_mutex.acquire()
-
-    def update(self):
-        self.pWaveTableCarrier.WTnextFrame()
-        self.pWaveTableSymbol.WTnextFrame()
-        symbol = 0j
-
-        if self.pWaveTableSymbol.IfPassesPointNextTime():
-            self.buffer_mutex.locked()
-            if self.buffer_used:
-                bit = self.buffer[self.buffer_tail] % 2
-                if bit < 0:
-                    bit *= bit
-                self.buffer_tail += 1
-                self.buffer_tail %= self.buffer_size
-                self.buffer_used -= 1
-
-                if (not self.askedformoredata) and (self.buffer_used * 2) < self.buffer_size:
-                    self.askedformoredata = True
-                    self.buffer_mutex.acquire()
-                    self.CallForMoreData(self.buffer_size - self.buffer_used)
-                else:
-                    self.buffer_mutex.acquire()
-            else:
-                self.buffer_mutex.acquire()
-                bit = random.randint(0, 1)
-
-            sel = random.randint(0, 1)
-            if sel:
-                symbol = complex(2.0 * (bit - 0.5), symbol.imag)
-            else:
-                symbol = complex(symbol.real, 2.0 * (bit - 0.5))
-
-        carrier = self.pWaveTableCarrier.WTCISValue()
-        signal = complex(carrier.real * self.fir_re.Update_Single(symbol.real),
-                         carrier.imag * self.fir_im.Update_Single(symbol.imag))
-
-        return self.dscabpf.Update_Single(0.5 * (signal.real + signal.imag))
-
-    def RefreshSettings(self, bitrate=None, carrier_freq=None, alpha=None, max_bit_buffer_size=None):
-        if bitrate is not None:
-            self.settings.bitrate = bitrate
-        if carrier_freq is not None:
-            self.settings.carrier_freq = carrier_freq
-        if alpha is not None:
-            self.settings.alpha = alpha
-        if max_bit_buffer_size is not None:
-            self.settings.max_bit_buffer_size = max_bit_buffer_size
-
-        try:
-            self.buffer_mutex.acquire()
-            self.buffer_head = 0
-            self.buffer_tail = 0
-            self.buffer_used = 0
-            self.buffer = [0] * self.settings.max_bit_buffer_size
-            self.buffer_size = len(self.buffer)
-            self.askedformoredata = False
-
-            self.pWaveTableCarrier.RefreshSettings(self.settings.carrier_freq)
-            self.pWaveTableSymbol.RefreshSettings(self.settings.bitrate)
-
-            symbolrate = self.settings.bitrate / 2.0
-            firlen = int(5 * 6 * self.pDspGen.SampleRate / symbolrate)
-            self.rrc = RRCFilter()
-            self.rrc.create(symbolrate, firlen, self.settings.alpha, self.pDspGen.SampleRate)
-            self.rrc.scalepoints(6.1)
-            self.fir_re.setKernel(self.rrc.Points)
-            self.fir_im.setKernel(self.rrc.Points)
-
-            bw = 0.5 * (1.0 + self.settings.alpha) * self.settings.bitrate + 10
-            minfreq = max(self.settings.carrier_freq - bw / 2.0, 1.0)
-            maxfreq = min(self.settings.carrier_freq + bw / 2.0, self.pDspGen.SampleRate / 2.0 - 1.0)
-            self.dscabpf.setKernel(FilterDesign.BandPassHanning(minfreq, maxfreq, self.pDspGen.SampleRate, 256 - 1))
-
-            self.symbol_this = 0
-            self.symbol_next = 0
-
-        finally:
-            self.buffer_mutex.acquire()
-
-    def delayedStartSpooling(self):
-        self.StartSpooling()
-
-    def isSpooling(self):
-        return self.spooling
-
-class WaveTable:
-    def __init__(self, pDspGen, frequency):
-        self.pDspGen = pDspGen
-        self.frequency = frequency
-
-    def WTnextFrame(self):
-        pass
-
-    def IfPassesPointNextTime(self):
-        return True
-
-    def RefreshSettings(self, freq):
-        self.frequency = freq
-
-class FastFIRFilter:
-    def __init__(self):
-        self.kernel = None
-
-    def setKernel(self, kernel):
-        self.kernel = kernel
-
-    def Update_Single(self, value):
-        return value
-
-class FilterDesign:
-    @staticmethod
-    def BandPassHanning(minfreq, maxfreq, sample_rate, length):
-        return np.zeros(length)
-
-class TDspGen:
-    def __init__(self):
-        self.SampleRate = 0  # Your desired sample rate value
-
-class RRCFilter:
-    def __init__(self):
-        self.Points = None
-
-    def create(self, symbolrate, firlen, alpha, sample_rate):
-        # Implementation of RRC filter creation
-        pass
-
-    def scalepoints(self, scale_factor):
-        # Implementation of scaling the RRC filter points
-        pass
 
 # use paFloat32
 def FSKEncoder(data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000):
@@ -909,3 +706,232 @@ def OFDMDecoder(received_signal, samplerate=48000, subcarrier_frequency=1000, cy
         decoded_data += decoded_char
 
     return decoded_data
+
+class FSKEncoderV5:
+    def __init__(self, opts):
+        if not isinstance(self, FSKEncoderV5):
+            return FSKEncoderV5(opts)
+
+        opts = opts or {}
+
+        if 'baud' not in opts:
+            raise ValueError('must specify opts.baud')
+        if 'space' not in opts:
+            raise ValueError('must specify opts.space')
+        if 'mark' not in opts:
+            raise ValueError('must specify opts.mark')
+        opts['sampleRate'] = opts.get('sampleRate', 8000)
+        opts['samplesPerFrame'] = opts.get('samplesPerFrame', self.getMinSamplesPerFrame(opts['sampleRate'], opts['baud']))
+
+        self.symbolDuration = 1 / opts['baud']
+        self.frameDuration = opts['samplesPerFrame'] / opts['sampleRate']
+        self.state = 'preamble:space'
+        self.clock = 0
+        self.totalTime = 0
+
+        self.opts = opts
+        self.data = []
+        self.firstWrite = True
+
+    @staticmethod
+    def getMinSamplesPerFrame(sampleRate, baud):
+        return int(sampleRate / baud / 5)
+
+    def sin(self, hz, t):
+        return np.sin(np.pi * 2 * t * hz)
+
+    def writeByte(self, b):
+        data = []
+        samples_per_baud = int(self.opts['sampleRate'] // self.opts['baud'])  # Calculate integer value
+        for i in range(8):
+            bit = b & 0x1
+            b >>= 1
+            data += self.sinSamples(self.opts['space'] if bit == 0 else self.opts['mark'], samples_per_baud)
+        return data
+
+    def sinSamples(self, hz, samples):
+        data = []
+        for i in range(samples):
+            v = self.sin(hz, i / self.opts['sampleRate'])
+            data.append(v)
+        return data
+
+    def writePreamble(self):
+        data = self.sinSamples(self.opts['space'], self.opts['sampleRate'] // self.opts['baud'])
+        data += self.sinSamples(self.opts['mark'], self.opts['sampleRate'] // self.opts['baud'])
+        return data
+
+    def transform(self, chunk):
+        if isinstance(chunk, str):
+            chunk = bytearray(chunk, 'utf-8')
+
+        if self.firstWrite:
+            self.data += self.writePreamble()
+            self.firstWrite = False
+
+        for i in range(len(chunk)):
+            self.data += self.writeByte(chunk[i])
+
+        frames = len(self.data) // self.opts['samplesPerFrame']
+        output_frames = []
+        for i in range(frames):
+            idx = i * self.opts['samplesPerFrame']
+            frame = self.data[idx:idx + self.opts['samplesPerFrame']]
+            output_frames.append(frame)
+
+        return output_frames
+
+    def flush(self):
+        return self.data
+
+class FSKDecoderV3:
+    def __init__(self, opts):
+        if not isinstance(self, FSKDecoderV3):
+            return FSKDecoderV3(opts)
+
+        opts = opts or {}
+
+        if 'baud' not in opts:
+            raise ValueError('must specify opts.baud')
+        if 'space' not in opts:
+            raise ValueError('must specify opts.space')
+        if 'mark' not in opts:
+            raise ValueError('must specify opts.mark')
+        opts['sampleRate'] = opts.get('sampleRate', 8000)
+        opts['samplesPerFrame'] = opts.get('samplesPerFrame',
+                                           self.getMinSamplesPerFrame(opts['sampleRate'], opts['baud']))
+
+        self.symbolDuration = 1 / opts['baud']
+        self.frameDuration = opts['samplesPerFrame'] / opts['sampleRate']
+        self.state = 'preamble:space'
+        self.clock = 0
+        self.totalTime = 0
+        self.marksSeen = 0
+        self.spacesSeen = 0
+        self.bytePos = 0
+        self.byteAccum = 0
+
+        self.opts = opts
+
+    @staticmethod
+    def getMinSamplesPerFrame(sampleRate, baud):
+        return int(sampleRate / baud / 5)
+
+    def hasSpace(self, frame):
+        if isinstance(frame, np.ndarray):
+            return frame.any()
+        elif isinstance(frame, list):
+            return any(frame)
+        else:
+            raise TypeError("Unsupported data type for frame")
+
+    def hasMark(self, frame):
+        if isinstance(frame, np.ndarray):
+            return frame.any()
+        elif isinstance(frame, list):
+            return any(frame)
+        else:
+            raise TypeError("Unsupported data type for frame")
+
+    def handleFrame(self, frame):
+        s = self.hasSpace(frame)
+        m = self.hasMark(frame)
+
+        bit = None
+        if s and not m:
+            bit = 0
+        elif not s and m:
+            bit = 1
+
+        if self.state == 'preamble:space':
+            if bit == 1:
+                self.clock = 0
+                self.state = 'preamble:mark'
+        elif self.state == 'preamble:mark':
+            if self.clock >= self.symbolDuration:
+                self.clock = 0
+                self.state = 'decode'
+        elif self.state == 'decode':
+            if bit == 0:
+                self.spacesSeen += 1
+            else:
+                self.marksSeen += 1
+
+            if self.clock >= self.symbolDuration:
+                self.decideOnSymbol()
+
+        self.clock += self.frameDuration
+        self.totalTime += self.frameDuration
+
+    def decideOnSymbol(self):
+        error = self.spacesSeen if self.marksSeen > self.spacesSeen else self.marksSeen
+        bit = 1 if self.marksSeen > self.spacesSeen else 0
+
+        self.spacesSeen = self.marksSeen = 0
+
+        self.byteAccum >>= 1
+        self.byteAccum |= (bit << 7)
+        self.bytePos += 1
+
+        if self.bytePos == 8:
+            buf = bytes([self.byteAccum])
+            # Depending on the use case, you might want to handle the output here
+            self.byteAccum = 0
+            self.bytePos = 0
+        elif self.bytePos > 8:
+            raise ValueError('Somehow accumulated more than 8 bits!')
+
+        self.clock = self.frameDuration * error
+
+class FSKDecoderV4:
+    def __init__(self, opts):
+        self.opts = opts
+        self.symbolDuration = 1 / opts['baud']
+        self.clock = 0
+        self.state = 'space'
+        self.decoded_data = bytearray()
+
+    def detectFrequencyShifts(self, received_signal):
+        self.frequency_shifts = []
+        threshold = (self.opts['space'] + self.opts['mark']) / 2
+        for i in range(1, len(received_signal)):
+            if received_signal[i] > threshold > received_signal[i - 1]:
+                self.frequency_shifts.append(i)
+
+    def synchronizeClock(self):
+        self.clock_samples = self.frequency_shifts
+
+    def decodeBits(self, received_signal):
+        for i in range(len(self.clock_samples) - 1):
+            start = self.clock_samples[i]
+            end = self.clock_samples[i + 1]
+            symbol_duration_samples = int(self.symbolDuration * self.opts['sampleRate'])
+
+            if end - start > symbol_duration_samples / 2:
+                self.decoded_data.append(1)  # Replace with appropriate decoding logic
+            else:
+                self.decoded_data.append(0)  # Replace with appropriate decoding logic
+
+    def processSignal(self, received_signal):
+        self.detectFrequencyShifts(received_signal)
+        self.synchronizeClock()
+        self.decodeBits(received_signal)
+        return self.decoded_data
+
+
+def preamble(samplerate=48000, baudrate=100, tone1=1000, tone2=2000, bitlist=None):
+    if bitlist is None:
+        bitlist = [1, 1, 0, 1, 0, 1, 0, 1]
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    byte_data = np.zeros(0)
+    for _ in range(0, 16):
+        for bit in bitlist:
+            if bit:
+                roffle = np.sin(2 * np.pi * tone2 * np.arange(samples_per_bit) / samplerate)
+                byte_data = np.append(byte_data, roffle * 0.8)
+            else:
+                sinewave = np.sin(2 * np.pi * tone1 * np.arange(samples_per_bit) / samplerate)
+                byte_data = np.append(byte_data, sinewave)
+
+    return byte_data

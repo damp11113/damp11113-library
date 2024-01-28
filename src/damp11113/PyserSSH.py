@@ -35,20 +35,24 @@ import threading
 import six
 import logging
 from functools import wraps
-import signal
+from .info import pyofetch
+from .utils import TextFormatter
 
 sftpclient = ["WinSCP", "Xplore"]
 
 #paramiko.sftp_file.SFTPFile.MAX_REQUEST_SIZE = pow(2, 22)
 
 logger = logging.getLogger("PyserSSH")
+logger.disabled = True
+
+version = "3.5"
 
 system_banner = (
-    "\033[36mPyserSSH V3.2 \033[0m\n"
-    "\033[33m!!Warning!! This is Testing Version of PyserSSH \033[0m\n"
-    "\033[35mUse Putty and WinSCP (SFTP) for best experience \033[0m\n"
-    "\033[33mX11-Forwarding \033[31mNot available on this version \033[0m\n"
+    f"\033[36mPyserSSH V{version} \033[0m\n"
+    #"\033[33m!!Warning!! This is Testing Version of PyserSSH \033[0m\n"
+    "\033[35mUse Putty and WinSCP (SFTP) for best experience \033[0m"
 )
+
 print(system_banner)
 
 def replace_enter_with_crlf(input_string):
@@ -65,59 +69,72 @@ def Send(channel, string, ln=True):
 def wait_input(channel, prompt="", defaultvalue=None, cursor_scroll=False):
     channel.send(replace_enter_with_crlf(prompt))
 
-    buffer = six.BytesIO()
-    cursor_position = 0  # Variable to keep track of cursor position
+    buffer = bytearray()
+    cursor_position = 0
+
     try:
         while True:
             byte = channel.recv(1)
+
             if not byte or byte == b'\x04':
                 raise EOFError()
+
             elif byte == b'\t':
                 pass
-            elif byte == b'\x7f':
+
+            elif byte == b'\x7f':  # Backspace
                 if cursor_position > 0:
-                    # Move cursor back
-                    channel.sendall(b'\b')
-                    # Erase the character under the cursor
-                    channel.sendall(b' ')
-                    # Move cursor back again to the erased position
-                    channel.sendall(b'\b')
-                    # Update the buffer by removing the character at cursor position
-                    buffer_value = buffer.getvalue()
-                    buffer_value = buffer_value[:cursor_position - 1] + buffer_value[cursor_position:]
-                    buffer = six.BytesIO(buffer_value)
+                    # Move cursor back, erase character, move cursor back again
+                    channel.sendall(b'\b \b')
+                    buffer = buffer[:cursor_position - 1] + buffer[cursor_position:]
                     cursor_position -= 1
-            elif byte == b'\x1b' and channel.recv(1) == b'[':
+
+            elif byte == b'\x1b' and channel.recv(1) == b'[':  # Arrow keys
                 arrow_key = channel.recv(1)
                 if cursor_scroll:
-                    if arrow_key == b'C':
-                        # Right arrow key, move cursor right if not at the end
-                        if cursor_position < buffer.tell():
+                    if arrow_key == b'C':  # Right arrow key
+                        if cursor_position < len(buffer):
                             channel.sendall(b'\x1b[C')
                             cursor_position += 1
-                    elif arrow_key == b'D':
-                        # Left arrow key, move cursor left if not at the beginning
+                    elif arrow_key == b'D':  # Left arrow key
                         if cursor_position > 0:
                             channel.sendall(b'\x1b[D')
                             cursor_position -= 1
-            elif byte in (b'\r', b'\n'):
+
+            elif byte in (b'\r', b'\n'):  # Enter key
                 break
-            else:
-                buffer.write(byte)
+
+            else:  # Regular character
+                buffer = buffer[:cursor_position] + byte + buffer[cursor_position:]
                 cursor_position += 1
                 channel.sendall(byte)
 
         channel.sendall(b'\r\n')
 
-        output = codecs.decode(buffer.getvalue(), 'utf-8')
+        output = buffer.decode('utf-8')
 
-        if not defaultvalue is None and output == "":
+        # Return default value if specified and no input given
+        if defaultvalue is not None and not output.strip():
             return defaultvalue
         else:
             return output
 
     except Exception:
         raise
+
+def _systemcommand(channel, command, user):
+    if command == "info":
+        Send(channel, "Please wait...", ln=False)
+        pyf = pyofetch().info(f"{TextFormatter.format_text('PyserSSH Version', color='yellow')}: {TextFormatter.format_text(version, color='cyan')}")
+        Send(channel, "              \r", ln=False)
+        for i in pyf:
+            Send(channel, i)
+    elif command == "whoami":
+        Send(channel, user)
+    elif command == "exit":
+        channel.close()
+    else:
+        return False
 
 class AccountManager:
     def __init__(self):
@@ -166,7 +183,6 @@ class AccountManager:
         except Exception as e:
             print(f"An error occurred: {e}. No accounts loaded.")
 
-
     def set_user_sftp_allow(self, username, allow=True):
         if username in self.accounts:
             self.accounts[username]["sftp_allow"] = allow
@@ -197,6 +213,7 @@ class AccountManager:
             return self.accounts[username]["sftp_path"]
         return ""
 
+
 class Server(paramiko.ServerInterface):
     def __init__(self, accounts):
         self.event = threading.Event()
@@ -217,6 +234,9 @@ class Server(paramiko.ServerInterface):
         return True
 
     def check_channel_shell_request(self, channel):
+        return True
+
+    def check_channel_x11_request(self, channel, single_connection, auth_protocol, auth_cookie, screen_number):
         return True
 
 class SSHSFTPHandle(paramiko.SFTPHandle):
@@ -390,7 +410,7 @@ class SSHSFTPServer(paramiko.SFTPServerInterface):
         return symlink
 
 class SSHServer:
-    def __init__(self, accounts, system_message=True, timeout=0, disable_scroll_with_arrow=True, sftp=True, sftproot=os.getcwd()):
+    def __init__(self, accounts, system_message=True, timeout=0, disable_scroll_with_arrow=True, sftp=True, sftproot=os.getcwd(), system_commands=False):
         """
          A simple SSH server
         """
@@ -403,6 +423,12 @@ class SSHServer:
         self.disable_scroll_with_arrow = disable_scroll_with_arrow
         self.sftproot = sftproot
         self.sftpena = sftp
+        self.enasyscom = system_commands
+
+        self.system_banner = system_banner
+
+        if self.enasyscom:
+            print("\033[33m!!Warning!! System commands is enable! \033[0m")
 
     def on_user(self, event_name):
         def decorator(func):
@@ -441,6 +467,7 @@ class SSHServer:
 
         channel = bh_session.accept()
 
+
         if self.timeout != 0:
             channel.settimeout(self.timeout)
 
@@ -456,19 +483,23 @@ class SSHServer:
                 "current_user": None,
                 "channel": channel,  # Associate the channel with the client handler,
                 "last_activity_time": None,
-                "connecttype": None
+                "connecttype": None,
+                "last_login_time": None
             }
         client_handler = self.client_handlers[client_address]
         client_handler["current_user"] = server.current_user
         client_handler["channel"] = channel  # Update the channel attribute for the client handler
         client_handler["last_activity_time"] = time.time()
+        client_handler["last_login_time"] = time.time()
 
         peername = channel.getpeername()
 
         #if not any(bh_session.remote_version.split("-")[2].startswith(prefix) for prefix in sftpclient):
         if not channel.out_window_size == bh_session.default_window_size:
             if self.sysmess:
-                channel.sendall(replace_enter_with_crlf(system_banner))
+                channel.sendall(replace_enter_with_crlf(self.system_banner))
+                channel.sendall(replace_enter_with_crlf("\n"))
+
             self._handle_event("connect", channel, self.client_handlers[channel.getpeername()]["current_user"])
 
             client_handler["connecttype"] = "ssh"
@@ -505,12 +536,7 @@ class SSHServer:
         except Exception as e:
             logger.error(f"Error occurred while stopping the server: {e}")
 
-    def run(self, private_key_path, host="0.0.0.0", port=2222):
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-        self.server.bind((host, port))
-        self.private_key = paramiko.RSAKey(filename=private_key_path)
-
+    def _start_listening_thread(self):
         try:
             self.server.listen(10)
             logger.info("Start Listening for connections...")
@@ -522,32 +548,36 @@ class SSHServer:
         except Exception as e:
             logger.error(e)
 
+    def run(self, private_key_path, host="0.0.0.0", port=2222):
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
+        self.server.bind((host, port))
+        self.private_key = paramiko.RSAKey(filename=private_key_path)
+
+        client_thread = threading.Thread(target=self._start_listening_thread)
+        client_thread.start()
+
     def expect(self, chan, peername, echo=True):
-        buffer = six.BytesIO()
-        cursor_position = 0  # Variable to keep track of cursor position
+        buffer = bytearray()
+        cursor_position = 0
+
         try:
             while True:
                 byte = chan.recv(1)
                 self._handle_event("ontype", chan, byte, self.client_handlers[chan.getpeername()]["current_user"])
+
                 if self.timeout != 0:
                     self.client_handlers[chan.getpeername()]["last_activity_time"] = time.time()
+
                 if not byte or byte == b'\x04':
                     raise EOFError()
                 elif byte == b'\t':
                     pass
                 elif byte == b'\x7f':
                     if cursor_position > 0:
-                        # Remove the character from the buffer at cursor position
-                        buffer_value = buffer.getvalue()
-                        buffer_value = buffer_value[:cursor_position - 1] + buffer_value[cursor_position:]
-                        buffer = six.BytesIO(buffer_value)
-                        # Move cursor back
-                        chan.sendall(b'\b')
-                        # Erase the character under the cursor
-                        chan.sendall(b' ')
-                        # Move cursor back again to the erased position
-                        chan.sendall(b'\b')
+                        buffer = buffer[:cursor_position - 1] + buffer[cursor_position:]
                         cursor_position -= 1
+                        chan.sendall(b'\b \b')
                 elif byte == b'\x1b' and chan.recv(1) == b'[':
                     arrow_key = chan.recv(1)
                     if not self.disable_scroll_with_arrow:
@@ -564,21 +594,29 @@ class SSHServer:
                 elif byte in (b'\r', b'\n'):
                     break
                 else:
-                    buffer.write(byte)
+                    buffer = buffer[:cursor_position] + byte + buffer[cursor_position:]
                     cursor_position += 1
                     if echo:
                         chan.sendall(byte)
+
             if echo:
                 chan.sendall(b'\r\n')
-            self._handle_event("command", chan, codecs.decode(buffer.getvalue(), 'utf-8'), self.client_handlers[chan.getpeername()]["current_user"])
+
+            command = buffer.decode('utf-8')
+            currentuser = self.client_handlers[chan.getpeername()]["current_user"]
+
+            if self.enasyscom:
+                _systemcommand(chan, command, currentuser)
+
+            self._handle_event("command", chan, command, currentuser)
             try:
-                chan.send(replace_enter_with_crlf(self.accounts.get_prompt(self.client_handlers[chan.getpeername()]["current_user"]) + " ").encode('utf-8'))
+                chan.send(replace_enter_with_crlf(self.accounts.get_prompt(currentuser) + " ").encode('utf-8'))
             except:
                 logger.error("Send error")
-        except Exception:
-            raise
+
+        except Exception as e:
+            logger.error(str(e))
         finally:
-            # Check if the user is disconnected
             if not byte:
                 logger.info(f"{peername} is disconnected")
                 self._handle_event("disconnected", peername, self.client_handlers[peername]["current_user"])

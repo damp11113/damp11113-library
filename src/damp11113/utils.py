@@ -40,6 +40,8 @@ from playsound import playsound
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from shutil import get_terminal_size
+from decimal import Decimal, getcontext
 
 def grade(number):
     score = int(number)
@@ -299,6 +301,7 @@ def get_format_time(sec):
     else:
         return f"{sec}s"
 
+
 def get_format_time2(sec):
     if sec >= 31557600: # years
         m, s = divmod(sec, 60)
@@ -334,6 +337,42 @@ def get_format_time2(sec):
         return f"{str(m).zfill(2)}:{str(sec).zfill(2)}"
     else:
         return f"00:{str(sec).zfill(2)}"
+
+def get_format_time3(sec):
+    if sec >= 31557600: # years
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        y, d = divmod(d, 365)
+        return f"{y} years, {d} days, {h} hour, {m} minutes, {s} seconds"
+    elif sec >= 2628002: # months
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        mo, d = divmod(d, 30)
+        return f"{mo} months, {d} days, {h} hour, {m} minutes, {s} seconds"
+    elif sec >= 604800:# weeks
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        w, d = divmod(d, 7)
+        return f"{w} weeks, {d} days, {h} hour, {m} minutes, {s} seconds"
+    elif sec >= 86400: # days
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        return f"{d} days, {h} hour, {m} minutes, {s} seconds"
+    elif sec >= 3600:# hours
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        return f"{h} hour, {m} minutes, {s} seconds"
+    elif sec >= 60: # minutes
+        m, s = divmod(sec, 60)
+        h, m = divmod(m, 60)
+        return f"{m} minutes, {s} seconds"
+    else:
+        return f"{sec} seconds"
 
 def addStringEveryN(original_string, add_string, n):
     # Input validation
@@ -383,10 +422,11 @@ def scrollTextBySteps(text, scrollstep, scrollspace=10):
     return scrolled
 
 def calculate_pi(n):
-    pi = 0.0
+    getcontext().prec = 50  # Set precision to 50 decimal places
+    pi = Decimal(0)
     for k in range(n):
-        pi += 1.0 / (16 ** k) * (
-            4.0 / (8 * k + 1) - 2.0 / (8 * k + 4) - 1.0 / (8 * k + 5) - 1.0 / (8 * k + 6)
+        pi += Decimal(1) / (16 ** k) * (
+            Decimal(4) / (8 * k + 1) - Decimal(2) / (8 * k + 4) - Decimal(1) / (8 * k + 5) - Decimal(1) / (8 * k + 6)
         )
     return pi
 
@@ -456,3 +496,122 @@ def texttable(data):
         table_str += '\n'
 
     return table_str
+
+def clearconsolelastline(x=80, y=20):
+    cols = get_terminal_size((x, y)).columns
+    print("\r" + " " * cols, end="", flush=True)
+
+class TextFormatter:
+    RESET = "\033[0m"
+    TEXT_COLORS = {
+        "black": "\033[30m",
+        "red": "\033[31m",
+        "green": "\033[32m",
+        "yellow": "\033[33m",
+        "blue": "\033[34m",
+        "magenta": "\033[35m",
+        "cyan": "\033[36m",
+        "white": "\033[37m"
+    }
+    TEXT_COLOR_LEVELS = {
+        "light": "\033[1;{}m",  # Light color prefix
+        "dark": "\033[2;{}m"  # Dark color prefix
+    }
+    BACKGROUND_COLORS = {
+        "black": "\033[40m",
+        "red": "\033[41m",
+        "green": "\033[42m",
+        "yellow": "\033[43m",
+        "blue": "\033[44m",
+        "magenta": "\033[45m",
+        "cyan": "\033[46m",
+        "white": "\033[47m"
+    }
+    TEXT_ATTRIBUTES = {
+        "bold": "\033[1m",
+        "italic": "\033[3m",
+        "underline": "\033[4m",
+        "blink": "\033[5m",
+        "reverse": "\033[7m",
+        "strikethrough": "\033[9m"
+    }
+
+    @staticmethod
+    def format_text(text, color=None, color_level=None, background=None, attributes=None, target_text=''):
+        formatted_text = ""
+        start_index = text.find(target_text)
+        end_index = start_index + len(target_text) if start_index != -1 else len(text)
+
+        if color in TextFormatter.TEXT_COLORS:
+            if color_level in TextFormatter.TEXT_COLOR_LEVELS:
+                color_code = TextFormatter.TEXT_COLORS[color]
+                color_format = TextFormatter.TEXT_COLOR_LEVELS[color_level].format(color_code)
+                formatted_text += color_format
+            else:
+                formatted_text += TextFormatter.TEXT_COLORS[color]
+
+        if background in TextFormatter.BACKGROUND_COLORS:
+            formatted_text += TextFormatter.BACKGROUND_COLORS[background]
+
+        if attributes in TextFormatter.TEXT_ATTRIBUTES:
+            formatted_text += TextFormatter.TEXT_ATTRIBUTES[attributes]
+
+        if target_text == "":
+            formatted_text += text + TextFormatter.RESET
+        else:
+            formatted_text += text[:start_index] + text[start_index:end_index] + TextFormatter.RESET + text[end_index:]
+
+        return formatted_text
+
+def center_string(main_string, replacement_string):
+    # Find the center index of the main string
+    center_index = len(main_string) // 2
+
+    # Calculate the start and end indices for replacing
+    start_index = center_index - len(replacement_string) // 2
+    end_index = start_index + len(replacement_string)
+
+    # Replace the substring at the center
+    new_string = main_string[:start_index] + replacement_string + main_string[end_index:]
+
+    return new_string
+
+def insert_string(base, inserted, position=0):
+    return base[:position] + inserted + base[position + len(inserted):]
+
+def find_quartiles(data):
+    data.sort()
+    mid = len(data) // 2
+
+    q2 = data[mid] if len(data) % 2 != 0 else (data[mid - 1] + data[mid]) / 2
+
+    lower_half = data[:mid]
+    upper_half = data[mid + 1:] if len(data) % 2 != 0 else data[mid:]
+
+    mid_lower = len(lower_half) // 2
+    mid_upper = len(upper_half) // 2
+
+    q1 = lower_half[mid_lower] if len(lower_half) % 2 != 0 else (lower_half[mid_lower - 1] + lower_half[mid_lower]) / 2
+    q3 = upper_half[mid_upper] if len(upper_half) % 2 != 0 else (upper_half[mid_upper - 1] + upper_half[mid_upper]) / 2
+
+    return q1, q2, q3
+
+def limit_string_in_line(text, limit):
+    lines = text.split('\n')
+    new_lines = []
+
+    for line in lines:
+        words = line.split()
+        new_line = ''
+
+        for word in words:
+            if len(new_line) + len(word) <= limit:
+                new_line += word + ' '
+            else:
+                new_lines.append(new_line.strip())
+                new_line = word + ' '
+
+        if new_line:
+            new_lines.append(new_line.strip())
+
+    return '\n'.join(new_lines)

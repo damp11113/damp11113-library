@@ -1,4 +1,5 @@
 """
+This module work only in windows
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
 Copyright (C) 2021-2023 damp11113 (MIT)
 
@@ -27,7 +28,6 @@ SOFTWARE.
 
 import os
 import time
-from shutil import get_terminal_size
 import ctypes
 import comtypes.client
 import win32api
@@ -285,62 +285,6 @@ def echo(message='Hello world'):
 
 def cmd(command='echo hello world!'):
     return os.system(command)
-
-def clearconsolelastline(x=80, y=20):
-    cols = get_terminal_size((x, y)).columns
-    print("\r" + " " * cols, end="", flush=True)
-
-class TextFormatter:
-    RESET = "\033[0m"
-    TEXT_COLORS = {
-        "black": "\033[30m",
-        "red": "\033[31m",
-        "green": "\033[32m",
-        "yellow": "\033[33m",
-        "blue": "\033[34m",
-        "magenta": "\033[35m",
-        "cyan": "\033[36m",
-        "white": "\033[37m"
-    }
-    TEXT_COLOR_LEVELS = {
-        "light": "\033[1;{}m",  # Light color prefix
-        "dark": "\033[2;{}m"  # Dark color prefix
-    }
-    BACKGROUND_COLORS = {
-        "black": "\033[40m",
-        "red": "\033[41m",
-        "green": "\033[42m",
-        "yellow": "\033[43m",
-        "blue": "\033[44m",
-        "magenta": "\033[45m",
-        "cyan": "\033[46m",
-        "white": "\033[47m"
-    }
-    TEXT_ATTRIBUTES = {
-        "bold": "\033[1m",
-        "italic": "\033[3m",
-        "underline": "\033[4m",
-        "blink": "\033[5m",
-        "reverse": "\033[7m",
-        "strikethrough": "\033[9m"
-    }
-
-    @staticmethod
-    def format_text(text, color=None, color_level=None, background=None, attributes=None):
-        formatted_text = ""
-        if color in TextFormatter.TEXT_COLORS:
-            if color_level in TextFormatter.TEXT_COLOR_LEVELS:
-                color_code = TextFormatter.TEXT_COLORS[color]
-                color_format = TextFormatter.TEXT_COLOR_LEVELS[color_level].format(color_code)
-                formatted_text += color_format
-            else:
-                formatted_text += TextFormatter.TEXT_COLORS[color]
-        if background in TextFormatter.BACKGROUND_COLORS:
-            formatted_text += TextFormatter.BACKGROUND_COLORS[background]
-        if attributes in TextFormatter.TEXT_ATTRIBUTES:
-            formatted_text += TextFormatter.TEXT_ATTRIBUTES[attributes]
-        formatted_text += text + TextFormatter.RESET
-        return formatted_text
 
 def setConsoleTitle(window_title_string, wait_for_change=False):
     os.system("title " + window_title_string)

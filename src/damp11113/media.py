@@ -420,11 +420,23 @@ def ranpix(opath, size=(512, 512)):
 def PIL2DPG(pil_image):
     return CV22DPG(PIL2CV2(pil_image))
 
+
 def CV22DPG(cv2_array):
-    data = np.flip(cv2_array, 2)
-    data = data.ravel()
-    data = np.asfarray(data, dtype='f')
-    return np.true_divide(data, 255.0)
+    try:
+        if cv2_array is None or len(cv2_array.shape) < 3:
+            print("Invalid or empty array received.")
+            return None
+
+        if len(cv2_array.shape) == 2:
+            cv2_array = cv2_array[:, :, np.newaxis]
+
+        data = np.flip(cv2_array, 2)
+        data = data.ravel()
+        data = np.asfarray(data, dtype='f')
+        return np.true_divide(data, 255.0)
+    except Exception as e:
+        print("Error in CV22DPG:", e)
+        return None
 
 def PromptPayQRcodeGen(account,one_time=True,country="TH",money="",currency="THB"):
     """
@@ -661,7 +673,7 @@ def mp32pyaudio(file, convertpyaudio=False):
     # read samples
     audio_bytes = np.array(audio.get_array_of_samples())
     if convertpyaudio:
-        print("!!Warning, this conversion with this function is very loud. please turn down the volume. this function be beta!!")
-        audio_bytes = audio_bytes.astype(np.float32).reshape((-1, channels)).tobytes()
+        print("Please use int16")
+        audio_bytes = audio_bytes.astype(np.int16).reshape((-1, channels)).tobytes()
 
     return audio_bytes, sample_rate, audio_format, channels

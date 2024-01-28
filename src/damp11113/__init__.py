@@ -26,6 +26,7 @@ SOFTWARE.
 """
 
 import os
+from .info import __version__
 
 try:
     os.environ["damp11113_load_all_module"]
@@ -33,13 +34,13 @@ except:
     os.environ["damp11113_load_all_module"] = "YES"
 
 if os.environ["damp11113_load_all_module"] == "YES":
+    from .info import *
     from .file import *
     from .network import *
-    from .info import *
     from .randoms import *
     from .processbar import *
     from .media import *
-    from .pyconsole import *
+    from .pywindows import *
     from .convert import *
     from .imageps import *
     from .utils import *
@@ -50,7 +51,6 @@ if os.environ["damp11113_load_all_module"] == "YES":
     from .OPFONMW.dearpygui_animate import *
     from .logic import *
 
-__version__ = '2023.11.18.19.0.0' # 2023/11/18 | 19 file (no __init__.py) | --- function |
 
 try:
     os.environ["damp11113_check_update"]
