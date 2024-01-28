@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: damp11113
-Version: 2024.1.28.19.0.0
+Version: 2024.1.28.19.0.0.1
 Summary: A Utils library and Easy to using.
 Home-page: https://github.com/damp11113/damp11113-library
 Author: damp11113
@@ -47,6 +47,10 @@ damp11113-library
 ===============
 A Utils library and Easy to use.
 
+If feature in wiki haven't in library that is a preview feature. Please wait for new update.
+
+If the library has bugs. Please new issue.
+
 This is how to turn off check update and load all func
 ```py
 import os
@@ -57,11 +61,11 @@ os.environ["damp11113_check_update"] = "NO"
 
 Installing
 ===============
-~~install from PyPi~~ (no longer)
+install from PyPi
 
     pip install damp11113
     
-or install from github (recommend) 
+or install from github
 
     pip install git+https://github.com/damp11113/damp11113-library.git
     

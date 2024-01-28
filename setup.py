@@ -70,7 +70,7 @@ else:
 
 setup(
     name='damp11113',
-    version='2024.1.28.19.0.0',
+    version='2024.1.28.19.0.0.1', # fix twine can't upload
     license='MIT',
     author='damp11113',
     author_email='damp51252@gmail.com',
