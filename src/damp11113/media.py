@@ -253,24 +253,6 @@ class youtube_stream2:
     def get_dec(self):
         return self.ydl.extract_info(self.url, download=False)['description']
 
-
-class ffmpeg_stream:
-    def __init__(self) -> None:
-        pass
-
-    def load(self, file_path):
-        self.stream = ffmpeg.input(file_path)
-        return f"Loaded {file_path}"
-
-    def write(self, file_path, acodec='mp4', ac=2, hz='44100', bitrate='320'):
-        ffmpeg.run(self.stream.output(file_path, acodec=acodec, ac=ac, ar=hz, **{'b:a': f'{bitrate}k'}))
-        return f"Writing {file_path}"
-
-    def streaming(self, url, acodec='mp4', ac=2, hz='44100', bitrate='320'):
-        ffmpeg.run(self.stream.output(url, acodec=acodec, ac=ac, ar=hz, **{'b:a': f'{bitrate}k'}))
-        return f"Streaming {url}"
-
-
 def clip2frames(clip_path, frame_path, currentframe=1, filetype='png'):
     try:
         clip = cv2.VideoCapture(clip_path)
@@ -344,6 +326,40 @@ def repixpil(pilarray, i_size):
     small_img = pilarray.resize(i_size, Image.BILINEAR)
     res = small_img.resize(pilarray.size, Image.NEAREST)
     return res
+
+
+def resziepil(image, max_width, max_height):
+    """
+    Resize an image to fit within a bounding box without cropping.
+
+    Args:
+    image (PIL.Image): The input image object.
+    max_width (int): Maximum width of the bounding box.
+    max_height (int): Maximum height of the bounding box.
+
+    Returns:
+    PIL.Image: The resized image object.
+    """
+    # Calculate new dimensions while preserving aspect ratio
+    width_ratio = max_width / image.width
+    height_ratio = max_height / image.height
+    min_ratio = min(width_ratio, height_ratio)
+    new_width = int(image.width * min_ratio)
+    new_height = int(image.height * min_ratio)
+
+    # Resize the image
+    resized_image = image.resize((new_width, new_height), Image.ANTIALIAS)
+
+    # Create a new image of the correct dimensions, with a white background
+    new_image = Image.new("RGB", (max_width, max_height), "white")
+
+    # Paste the resized image onto the new image, centered
+    x_offset = (max_width - new_width) // 2
+    y_offset = (max_height - new_height) // 2
+    new_image.paste(resized_image, (x_offset, y_offset))
+
+    # Return the resized image
+    return new_image
 
 def qrcodegen(text, showimg=False, save_path='./', filename='qrcode', filetype='png', version=1, box_size=10, border=5, fill_color="black", back_color="white", error_correction=qrcode.constants.ERROR_CORRECT_L, fit=True):
     qr = qrcode.QRCode(
@@ -420,7 +436,6 @@ def ranpix(opath, size=(512, 512)):
 def PIL2DPG(pil_image):
     return CV22DPG(PIL2CV2(pil_image))
 
-
 def CV22DPG(cv2_array):
     try:
         if cv2_array is None or len(cv2_array.shape) < 3:
@@ -449,34 +464,34 @@ def PromptPayQRcodeGen(account,one_time=True,country="TH",money="",currency="THB
     """
     Version = "0002"+"01" # เวชั่นของ  PromptPay
     if one_time==True: # one_time คือ ต้องการให้โค้ดนี้ครั้งเดียวหรือไม่
-        one_time="010212" # 12 ใช้ครั้งเดียว
+        one_time = "010212" # 12 ใช้ครั้งเดียว
     else:
-        one_time="010211" # 11 ใช้ได้้หลายครั้ง
-    merchant_account_information="2937" # ข้อมูลผู้ขาย
-    merchant_account_information+="0016"+"A000000677010111" # หมายเลขแอปพลิเคชั่น PromptPay
-    if len(account)!=13: # ใช้บัญชีใช้เป็นเบอร์มือถือหรือไม่ ถ้าใช่ จำนวนจะไม่เท่ากับ 13
-        account=list(account)
-        merchant_account_information+="011300" # 01 หมายเลขโทรศัพท์ ความยาว 13 ขึ้นต้น 00
-        if country=="TH":
-            merchant_account_information+="66" # รหัสประเทศ 66 คือประเทศไทย
+        one_time = "010211" # 11 ใช้ได้้หลายครั้ง
+    merchant_account_information = "2937" # ข้อมูลผู้ขาย
+    merchant_account_information += "0016" + "A000000677010111" # หมายเลขแอปพลิเคชั่น PromptPay
+    if len(account) != 13: # ใช้บัญชีใช้เป็นเบอร์มือถือหรือไม่ ถ้าใช่ จำนวนจะไม่เท่ากับ 13
+        account = list(account)
+        merchant_account_information += "011300" # 01 หมายเลขโทรศัพท์ ความยาว 13 ขึ้นต้น 00
+        if country == "TH":
+            merchant_account_information += "66" # รหัสประเทศ 66 คือประเทศไทย
         del account[0] # ตัดเลข 0 หน้าเบอร์ออก
-        merchant_account_information+=''.join(account)
+        merchant_account_information += ''.join(account)
     else:
-        merchant_account_information+="02"+account.replace('-','') # กรณีที่ไม่รับมือถือ แสดงว่าเป็นเลขบัตรประชาชน
-    country="5802"+country # ประเทศ
-    if currency=="THB":
-        currency="5303"+"764" # "764"  คือเงินบาทไทย ตาม https://en.wikipedia.org/wiki/ISO_4217
-    if money!="": # กรณีกำหนดเงิน
-        check_money=money.split('.') # แยกจาก .
-        if len(check_money)==1 or len(check_money[1])==1: # กรณีที่ไม่มี . หรือ มีทศนิยมแค่หลักเดียว
-            money="54"+"0"+str(len(str(float(money)))+1)+str(float(money))+"0"
+        merchant_account_information += "02" + account.replace('-', '') # กรณีที่ไม่รับมือถือ แสดงว่าเป็นเลขบัตรประชาชน
+    country = "5802" + country # ประเทศ
+    if currency == "THB":
+        currency = "5303" + "764" # "764"  คือเงินบาทไทย ตาม https://en.wikipedia.org/wiki/ISO_4217
+    if money != "": # กรณีกำหนดเงิน
+        check_money = money.split('.') # แยกจาก .
+        if len(check_money) == 1 or len(check_money[1]) == 1: # กรณีที่ไม่มี . หรือ มีทศนิยมแค่หลักเดียว
+            money = "54" + "0" + str(len(str(float(money)))+1) + str(float(money)) + "0"
         else:
-            money="54"+"0"+str(len(str(float(money))))+str(float(money)) # กรณีที่มีทศนิยมครบ
-    check_sum=Version+one_time+merchant_account_information+country+currency+money+"6304" # เช็คค่า check sum
-    check_sum1=hex(libscrc.ccitt(check_sum.encode("ascii"),0xffff)).replace('0x','')
-    if len(check_sum1)<4: # # แก้ไขข้อมูล check_sum ไม่ครบ 4 หลัก
-        check_sum1=("0"*(4-len(check_sum1)))+check_sum1
-    check_sum+=check_sum1
+            money = "54" + "0" + str(len(str(float(money)))) + str(float(money)) # กรณีที่มีทศนิยมครบ
+    check_sum = Version + one_time + merchant_account_information + country + currency + money + "6304" # เช็คค่า check sum
+    check_sum1 = hex(libscrc.ccitt(check_sum.encode("ascii"), 0xffff)).replace('0x', '')
+    if len(check_sum1) < 4: # # แก้ไขข้อมูล check_sum ไม่ครบ 4 หลัก
+        check_sum1 = ("0" * (4 - len(check_sum1))) + check_sum1
+    check_sum += check_sum1
     return check_sum.upper() # upper ใช้คืนค่าสตริงเป็นตัวพิมพ์ใหญ่
 
 def change_color_bit(image, output, colorbit=64):
@@ -553,6 +568,8 @@ def getinputdevice():
         if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
             lis.append([i, p.get_device_info_by_host_api_device_index(0, i).get('name')])
     return lis
+
+# --------------------------------------------------------
 
 def EdgeDetection(cvarray):
     # Convert to graycsale
@@ -636,44 +653,16 @@ class Yolov3Detection:
 
         return frame, info
 
-def mp32pyaudio(file, convertpyaudio=False):
+def audiofile2pyaudio(file, format, codec, startat=0, convertpyaudio=False, arrayformat=np.int16):
     """
-    !!Warning, this conversion with this function is very loud. please turn down the volume. this function be beta!!
-
-    @param file: mp3 file, convertpyaudio=False
-    @return: data, sample_rate, audio_format, channels
-
-    ex.
-
-    data, sample_rate, audio_format, channels = mp32pyaudio(file_path, convertpyaudio=True)
-
-    # Create an instance of the PyAudio class
-    p = pyaudio.PyAudio()
-
-    # Open a PyAudio stream
-    stream = p.open(format=audio_format,
-                    channels=channels,
-                    rate=sample_rate,
-                    output=True)
-
-    audio_bytes = data.astype(np.float32).tobytes()
-
-    stream.write(audio_bytes)
-
+    data, sample_rate, audio_format, channels = audiofile2pyaudio(file_path, format="ogg", codec="opus", convertpyaudio=True)
     """
-
     # import file
-    audio = AudioSegment.from_mp3(file)
-
-    # get info
-    sample_rate = audio.frame_rate
-    audio_format = audio.sample_width
-    channels = audio.channels
-
-    # read samples
+    audio = AudioSegment.from_file(file, format, codec, start_second=startat)
+    # read samples to array
     audio_bytes = np.array(audio.get_array_of_samples())
+    # convert
     if convertpyaudio:
-        print("Please use int16")
-        audio_bytes = audio_bytes.astype(np.int16).reshape((-1, channels)).tobytes()
+        audio_bytes = audio_bytes.astype(arrayformat).reshape((-1, audio.channels)).tobytes()
 
-    return audio_bytes, sample_rate, audio_format, channels
+    return audio_bytes, audio.frame_rate, audio.sample_width, audio.channels

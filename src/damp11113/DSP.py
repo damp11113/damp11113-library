@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-2024 damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -391,7 +391,11 @@ def mono2iq(monosignal):
 
 def getDBFS(audio_array, full_scale=1):
     # Calculate the RMS value of the audio data
-    rms = np.sqrt(np.mean(np.square(audio_array)))
+    rms = np.sqrt(np.mean(np.square(audio_array.astype(np.float32))))
+
+    # Ensure that rms is positive to avoid math domain error
+    if rms <= 0:
+        return float('-inf')  # Return negative infinity for dBFS
 
     # Calculate dBFS
     dbfs = 20 * math.log10(rms / full_scale)
@@ -424,7 +428,6 @@ def RTCompressor2(sample_data, Threshold=-20, Knee=10, Ratio=2, Attack=0.01, Rel
     compressed_audio = sample_data / (10 ** (Gain / 20)) * (1 - gain_reduction)
 
     return compressed_audio
-
 
 def RTEqualizer(sample_data, bands, sample_rate=48000):
     # Check if sample_data is a numpy array, if not, convert it to one
@@ -935,3 +938,42 @@ def preamble(samplerate=48000, baudrate=100, tone1=1000, tone2=2000, bitlist=Non
                 byte_data = np.append(byte_data, sinewave)
 
     return byte_data
+
+def preamble2(samplerate=48000, baudrate=100, tone1=1000, tone2=2000, hexcode=None):
+    if hexcode is None:
+        hexcode = 0xAB
+
+    # Convert hexadecimal integer to binary string
+    binary_string = bin(hexcode)[2:].zfill(8)
+
+    t = 1.0 / baudrate
+    samples_per_bit = int(t * samplerate)
+    byte_data = np.zeros(0)
+
+    for _ in range(0, 16):
+        for bit in binary_string:
+            if bit == '1':
+                roffle = np.sin(2 * np.pi * tone2 * np.arange(samples_per_bit) / samplerate)
+                byte_data = np.append(byte_data, roffle * 0.8)
+            else:
+                sinewave = np.sin(2 * np.pi * tone1 * np.arange(samples_per_bit) / samplerate)
+                byte_data = np.append(byte_data, sinewave)
+
+    return byte_data
+
+
+def mono2stereo(signal1, signal2):
+    # Check if both signals have the same length
+    if len(signal1) != len(signal2):
+        raise ValueError("Both signals must have the same length")
+
+    # Interleave the samples to create the stereo signal
+    stereo_signal = np.empty((len(signal1), 2), dtype=signal1.dtype)
+    stereo_signal[:, 0] = signal1
+    stereo_signal[:, 1] = signal2
+    return stereo_signal
+
+def stereo2mono(stereo_signal):
+    left_channel = stereo_signal[::2]
+    right_channel = stereo_signal[1::2]
+    return left_channel, right_channel

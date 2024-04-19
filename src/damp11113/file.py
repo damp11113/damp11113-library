@@ -139,66 +139,6 @@ def appendfileline(file, line, data):
         with open(file, 'a') as f:
             f.writelines(lines)
 
-#---------------------------------------open---------------------------------
-
-def openfile(ide, file):
-    os.system(f"{ide} {file}")
-
-#---------------------------------------run---------------------------------
-
-def runfile(file):
-    os.system(f"start {file}")
-
-def runpy(file):
-    os.system(f"python {file}")
-
-def runjs(file):
-    os.system(f"node {file}")
-
-def runjava(file):
-    os.system(f"java {file}")
-
-def runbash(file):
-    os.system(f"bash {file}")
-
-def runcpp(file):
-    os.system(f"g++ {file}")
-
-def runc(file):
-    os.system(f"gcc {file}")
-
-def runphp(file):
-    os.system(f"php {file}")
-
-def runruby(file):
-    os.system(f"ruby {file}")
-
-def rungo(file):
-    os.system(f"go {file}")
-
-def runperl(file):
-    os.system(f"perl {file}")
-
-def rundocker(file):
-    os.system(f"docker {file}")
-
-def runvim(file):
-    os.system(f"vim {file}")
-
-def runnano(file):
-    os.system(f"nano {file}")
-
-def rungedit(file):
-    os.system(f"gedit {file}")
-
-def runkate(file):
-    os.system(f"kate {file}")
-
-#--------------------------------------kill---------------------------------
-
-def kill(file):
-    os.system(f"taskkill /f /im {file}")
-
 #--------------------------------------zip----------------------------------
 
 def unzip(file, to):

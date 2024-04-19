@@ -24,6 +24,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+import time
 
 from pymata_aio.pymata3 import PyMata3        # type: ignore
 from pymata_aio.constants import Constants    # type: ignore
@@ -242,3 +243,69 @@ class Tileset:
         return self.sprites[ord(ch)]
 
 #----------------------------------------------------------------------------------------------------------------------
+
+class StepperMotor5:
+    def __init__(self, board, motor_pins):
+        self.board = board
+        self.motor_pins = motor_pins
+        self.steps_sequence = [
+            [1, 0, 1, 0, 1],  # Step 0: 01101
+            [1, 0, 0, 0, 1],  # Step 1: 01001
+            [1, 0, 1, 1, 1],  # Step 2: 01011
+            [1, 0, 0, 1, 0],  # Step 3: 01010
+            [1, 1, 0, 1, 0],  # Step 4: 11010
+            [1, 0, 0, 1, 0],  # Step 5: 10010
+            [1, 1, 1, 1, 0],  # Step 6: 10110
+            [1, 0, 1, 0, 0],  # Step 7: 10100
+            [1, 0, 1, 0, 1],  # Step 8: 10101
+            [0, 0, 1, 0, 1]   # Step 9: 00101
+        ]
+        self.number_of_steps = len(self.steps_sequence)
+        self.step_delay = 0
+        self.set_speed(60)
+
+        # Set up pins for output
+        for pin in self.motor_pins:
+            self.board.digital[pin].mode = 1
+
+    def set_speed(self, speed):
+        self.step_delay = 60 * 1000 / self.number_of_steps / speed
+
+    def step(self, steps_to_move):
+        steps_left = abs(steps_to_move)
+        direction = 1 if steps_to_move > 0 else 0
+
+        while steps_left > 0:
+            for step in range(self.number_of_steps):
+                for i, pin in enumerate(self.motor_pins):
+                    self.board.digital[pin].write(self.steps_sequence[step][i])
+                time.sleep(self.step_delay / 1000.0)  # delay is in milliseconds
+            steps_left -= 1
+
+class StepperMotor4:
+    def __init__(self, board, step_pin, direction_pin):
+        self.board = board
+        self.step_pin = step_pin
+        self.direction_pin = direction_pin
+
+        self.board.digital[self.step_pin].mode = 1
+        self.board.digital[self.direction_pin].mode = 1
+
+        self.step_delay = 0
+        self.set_speed(60)
+
+    def set_speed(self, speed):
+        self.step_delay = 60 * 1000 / speed
+
+    def step(self, steps_to_move):
+        direction = 1 if steps_to_move > 0 else 0
+        steps_left = abs(steps_to_move)
+
+        self.board.digital[self.direction_pin].write(direction)
+
+        while steps_left > 0:
+            self.board.digital[self.step_pin].write(1)
+            time.sleep(self.step_delay / 1000.0)
+            self.board.digital[self.step_pin].write(0)
+            time.sleep(self.step_delay / 1000.0)
+            steps_left -= 1

@@ -28,16 +28,13 @@ SOFTWARE.
 import socket
 import traceback
 from tqdm import tqdm
-import webbrowser
 import paho.mqtt.client as mqtt
 import time
 from .file import *
-import youtube_dl
-from .convert import bin2str, byte2str, str2bin
-import yt_dlp as youtube_dl2
+from .convert import byte2str
 import re
 import requests
-from .utils import get_size_unit, emb
+from .utils import emb
 from .processbar import LoadingProgress, steps5
 
 class vc_exception(Exception):
@@ -54,7 +51,6 @@ class receive_exception(Exception):
 
 class send_exception(Exception):
     pass
-
 
 def youtube_search(search, firstresult=True):
     formatUrl = requests.get(f'https://www.youtube.com/results?search_query={search}')
@@ -75,20 +71,6 @@ def ip_port_check(ip, port):
     except socket.error as e:
         raise ip_exeption(f'{ip}:{port} is disconnected')
     return rech
-
-attack_num = 0
-
-def http_ddos_attack(target): #beta
-    while True:
-        try:
-            d = requests.get(target)
-            global attack_num
-            attack_num += 1
-            print(f'[{attack_num}] {target} is connected')
-            d.close()
-        except:
-            print(f'[-] ddos attack is stop because {target} is disconnected')
-            pass
 
 #-------------------------download---------------------------
 
@@ -119,57 +101,7 @@ def loadfile(url, filename):
         progress.stopfail()
         emb(str(e), traceback.print_exc())
 
-def installpackage(package):
-    os.system(f'title install {package}')
-    os.system(f'pip install {package}')
-
-ydl_optss = {
-    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-    'outtmpl': '%(title)s.%(ext)s'
-}
-
-def ytload(url, ydl_opts=ydl_optss):
-    try:
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except:
-        print("ytload error")
-        pass
-
-def ytload2(url, ydl_opts=ydl_optss):
-    try:
-        with youtube_dl2.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except:
-        print("ytload error")
-        pass
-#----------------------------read------------------------------
-
-def readtextweb(url):
-    try:
-        r = requests.get(url)
-        return r.text
-    except Exception as e:
-        print("read error", e)
-
-#-----------------------------open-----------------------------
-
-def openurl(url):
-    webbrowser.open(url)
-
 #-----------------------------send-----------------------------
-
-def sendtext(url, text):
-    try:
-        return requests.post(url, data=text).status_code
-    except Exception as e:
-        raise send_exception(f'send error: {e}')
-
-def sendfile(url, file):
-    try:
-        requests.post(url, files=file)
-    except Exception as e:
-        raise send_exception(f'send error: {e}')
 
 def mqtt_publish(topic, message, port=1883, host="localhost"):
     try:
@@ -197,16 +129,6 @@ def udp_send(host, port, message):
         s.sendall(bytes(message, "utf-8"))
         s.close()
         print(f"udp send to {host}:{port}")
-    except Exception as e:
-        raise send_exception(f'send error: {e}')
-
-def binary_send(host, port, message):
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((host, port))
-        s.sendall(bytes(str2bin(message), 'utf-8'))
-        s.close()
-        print(f"binary send to {host}:{port}")
     except Exception as e:
         raise send_exception(f'send error: {e}')
 
@@ -266,19 +188,6 @@ def udp_receive(host, port):
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
 
-def binary_receive(host, port):
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((host, port))
-        s.listen(1)
-        conn, addr = s.accept()
-        data = bin2str(conn.recv(1024))
-        conn.close()
-        print(f"binary receive from {host}:{port}")
-        return byte2str(data)
-    except Exception as e:
-        raise receive_exception(f'receive error: {e}')
-
 def file_receive(host, port, buffsize=4096, speed=0.0000001):
     try:
         s = socket.socket()
@@ -301,50 +210,6 @@ def file_receive(host, port, buffsize=4096, speed=0.0000001):
         conn.close()
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
-
-#-----------------------------run-----------------------------
-
-def runngrok(type, ip, port):
-    os.system(f"start ngrok {type} {ip}:{port}")
-
-#---------flask------------------
-
-def flask_run(url, port):
-    os.system(f"flask run --host {url} --port {port}")
-
-def flask_run_debug(url, port):
-    os.system(f"flask run --host {url} --port {port} --debug")
-
-def flask_run_ssl(url, port, cert, key):
-    os.system(f"flask run --host {url} --port {port} --ssl-cert {cert} --ssl-key {key}")
-
-def flask_run_debug_ssl(url, port, cert, key):
-    os.system(f"flask run --host {url} --port {port} --debug --ssl-cert {cert} --ssl-key {key}")
-
-#----webshell------------------
-
-def runwebshell(url):
-    os.system(f"webshell {url}")
-
-def runwebshell_debug(url):
-    os.system(f"webshell {url} --debug")
-
-def runwebshell_ssl(url, cert, key):
-    os.system(f"webshell {url} --ssl-cert {cert} --ssl-key {key}")
-
-def runwebshell_debug_ssl(url, cert, key):
-    os.system(f"webshell {url} --debug --ssl-cert {cert} --ssl-key {key}")
-
-#----------------------------kill-----------------------------
-
-def killngrok():
-    os.system("taskkill /f /im ngrok.exe")
-
-def killflask():
-    os.system("taskkill /f /im flask.exe")
-
-def killwebshell():
-    os.system("taskkill /f /im webshell.exe")
 
 #----------------------line-api------------------------
 

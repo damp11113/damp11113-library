@@ -1,1 +1,0 @@
-git+https://github.com/damp11113/pafy2.git#egg=pafy2

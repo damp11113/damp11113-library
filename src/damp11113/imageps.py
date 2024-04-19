@@ -30,7 +30,6 @@ from .media import PIL2CV2, CV22PIL
 from PIL import Image, ImageEnhance
 import cv2
 import numpy
-import blend_modes
 
 def HighPass(pil_array, radius=10):
     cv2_array = PIL2CV2(pil_array)
@@ -136,47 +135,3 @@ def AdjSharpness(pil_array, sharpness=1):
 
 def AdjColor(pil_array, color=1):
     return ImageEnhance.Color(pil_array).enhance(color)
-
-class BlendingModes:
-    def __init__(self, pil_array_background, pil_array_foreground):
-        self.pil_array1 = pil_array_background
-        self.pil_array2 = pil_array_foreground
-
-    def SoftLight(self, opacity=1):
-        return blend_modes.soft_light(self.pil_array1, self.pil_array2, opacity)
-
-    def LightenOnly(self, opacity=1):
-        return blend_modes.lighten_only(self.pil_array1, self.pil_array2, opacity)
-
-    def Dodge(self, opacity=1):
-        return blend_modes.dodge(self.pil_array1, self.pil_array2, opacity)
-
-    def Addition(self, opacity=1):
-        return blend_modes.addition(self.pil_array1, self.pil_array2, opacity)
-
-    def DarkenOnly(self, opacity=1):
-        return blend_modes.darken_only(self.pil_array1, self.pil_array2, opacity)
-
-    def Multiply(self, opacity=1):
-        return blend_modes.multiply(self.pil_array1, self.pil_array2, opacity)
-
-    def HardLight(self, opacity=1):
-        return blend_modes.hard_light(self.pil_array1, self.pil_array2, opacity)
-
-    def Difference(self, opacity=1):
-        return blend_modes.difference(self.pil_array1, self.pil_array2, opacity)
-
-    def GrainExtract(self, opacity=1):
-        return blend_modes.grain_extract(self.pil_array1, self.pil_array2, opacity)
-
-    def GrainMerge(self, opacity=1):
-        return blend_modes.grain_merge(self.pil_array1, self.pil_array2, opacity)
-
-    def Divide(self, opacity=1):
-        return blend_modes.divide(self.pil_array1, self.pil_array2, opacity)
-
-    def Overlay(self, opacity=1):
-        return blend_modes.overlay(self.pil_array1, self.pil_array2, opacity)
-
-    def Normal(self, opacity=1):
-        return blend_modes.normal(self.pil_array1, self.pil_array2, opacity)

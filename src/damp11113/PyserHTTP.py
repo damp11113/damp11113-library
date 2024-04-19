@@ -35,6 +35,7 @@ logger = logging.getLogger('PyserHTTP')
 class HTTPServer:
     def __init__(self):
         self.routes = {}
+
     def route(self, path, methods=['GET']):
         def decorator(func):
             self.routes[path] = {'handler': func, 'methods': methods}

@@ -26,6 +26,7 @@ SOFTWARE.
 """
 
 import os
+import platform
 from .info import __version__
 
 try:
@@ -34,13 +35,17 @@ except:
     os.environ["damp11113_load_all_module"] = "YES"
 
 if os.environ["damp11113_load_all_module"] == "YES":
+    if platform.system() == "Windows":
+        from .pywindows import *
+        from .OPFONMW.dearpygui_animate import *
+        from .OPFONMW.ofdm_codec import *
+
     from .info import *
     from .file import *
     from .network import *
     from .randoms import *
     from .processbar import *
     from .media import *
-    from .pywindows import *
     from .convert import *
     from .imageps import *
     from .utils import *
@@ -48,9 +53,7 @@ if os.environ["damp11113_load_all_module"] == "YES":
     from .plusmata import *
     from .imageps import *
     from .DSP import *
-    from .OPFONMW.dearpygui_animate import *
     from .logic import *
-
 
 try:
     os.environ["damp11113_check_update"]

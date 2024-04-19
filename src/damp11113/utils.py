@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-2024 damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -111,8 +111,7 @@ def typing(text, speed=0.3):
         time.sleep(speed)
 
 def timestamp():
-    now = datetime.now()
-    return datetime.timestamp(now)
+    return datetime.timestamp(datetime.now())
 
 def full_cpu(min=100, max=10000, speed=0.000000000000000001):
     _range = rannum(min, max)
@@ -129,20 +128,6 @@ def full_cpu(min=100, max=10000, speed=0.000000000000000001):
         thread = thread_class(name, _range)
         thread.start()
         sleep(speed)
-
-def full_disk(min=100, max=10000,speed=0.000000000000000001):
-    ra = rannum(min, max)
-    for i in range(ra):
-        createfile('test.txt')
-        writefile2('test.txt', 'test')
-        readfile('test.txt')
-        removefile('test.txt')
-        sleep(speed)
-        print(f'{i}/{ra}')
-
-
-def mbox(title, text, style):
-    return ctypes.windll.user32.MessageBoxW(0, text, title, style)
 
 def tts(text, lang, play=True, name='tts.mp3', slow=False):
     tts = gTTS(text=text, lang=lang, slow=slow)
@@ -200,16 +185,6 @@ def emb2(info, details=None, text=textt, title='python'):
     else:
         sys.exit()
 
-class Queue:
-    def __init__(self, queue):
-        self.queue = queue
-    def put(self, item):
-        self.queue.append(item)
-    def get(self):
-        r = self.queue[0]
-        self.queue.pop(0)
-        return r
-
 def get_size_unit(bytes):
     for unit in ['', 'K', 'M', 'G', 'T', 'P']:
         if bytes < 1024:
@@ -240,6 +215,11 @@ def textonumber(text):
         l.append(ord(i))
     return ''.join(str(v) for v in l)
 
+def numbertotext(numbers):
+    l = []
+    for i in range(0, len(numbers), 2):
+        l.append(chr(int(numbers[i:i+2])))
+    return ''.join(l)
 
 def Amap(x, in_min, in_max, out_min, out_max):
     try:
@@ -300,7 +280,6 @@ def get_format_time(sec):
         return f"{m}m {s}s"
     else:
         return f"{sec}s"
-
 
 def get_format_time2(sec):
     if sec >= 31557600: # years
@@ -386,14 +365,8 @@ def addStringEveryN(original_string, add_string, n):
     return result
 
 def findStringDifferencesInList(list1, list2):
-    # Convert the input lists to sets
-    set1 = set(list1)
-    set2 = set(list2)
-
     # Find the differences between the sets
-    difference = list(set1.symmetric_difference(set2))
-
-    return difference
+    return list(set(list1).symmetric_difference(set(list2)))
 
 def replaceEnterWithCrlf(input_string):
     if '\n' in input_string:
@@ -563,6 +536,53 @@ class TextFormatter:
 
         return formatted_text
 
+    @staticmethod
+    def format_text_truecolor(text, color=None, background=None, attributes=None, target_text=''):
+        formatted_text = ""
+        start_index = text.find(target_text)
+        end_index = start_index + len(target_text) if start_index != -1 else len(text)
+
+        if color:
+            formatted_text += f"\033[38;2;{color}m"
+
+        if background:
+            formatted_text += f"\033[48;2;{background}m"
+
+        if attributes in TextFormatter.TEXT_ATTRIBUTES:
+            formatted_text += TextFormatter.TEXT_ATTRIBUTES[attributes]
+
+        if target_text == "":
+            formatted_text += text + TextFormatter.RESET
+        else:
+            formatted_text += text[:start_index] + text[start_index:end_index] + TextFormatter.RESET + text[end_index:]
+
+        return formatted_text
+
+    @staticmethod
+    def interpolate_color(color1, color2, ratio):
+        """
+        Interpolates between two RGB colors.
+        """
+        r = int(color1[0] * (1 - ratio) + color2[0] * ratio)
+        g = int(color1[1] * (1 - ratio) + color2[1] * ratio)
+        b = int(color1[2] * (1 - ratio) + color2[2] * ratio)
+        return f"{r};{g};{b}"
+
+    @staticmethod
+    def format_gradient_text(text, color1, color2, attributes=None):
+        formatted_text = ""
+        gradient_length = len(text)
+        for i in range(gradient_length):
+            ratio = i / (gradient_length - 1)
+            interpolated_color = TextFormatter.interpolate_color(color1, color2, ratio)
+            formatted_text += f"\033[38;2;{interpolated_color}m{text[i]}"
+        formatted_text += TextFormatter.RESET
+
+        if attributes:
+            formatted_text = f"{TextFormatter.TEXT_ATTRIBUTES[attributes]}{formatted_text}"
+
+        return formatted_text
+
 def center_string(main_string, replacement_string):
     # Find the center index of the main string
     center_index = len(main_string) // 2
@@ -594,7 +614,7 @@ def find_quartiles(data):
     q1 = lower_half[mid_lower] if len(lower_half) % 2 != 0 else (lower_half[mid_lower - 1] + lower_half[mid_lower]) / 2
     q3 = upper_half[mid_upper] if len(upper_half) % 2 != 0 else (upper_half[mid_upper - 1] + upper_half[mid_upper]) / 2
 
-    return q1, q2, q3
+    return min(data), q1, q2, q3, max(data)
 
 def limit_string_in_line(text, limit):
     lines = text.split('\n')
@@ -615,3 +635,6 @@ def limit_string_in_line(text, limit):
             new_lines.append(new_line.strip())
 
     return '\n'.join(new_lines)
+
+def split_string_at_intervals(input_string, interval):
+    return [input_string[i:i+interval] for i in range(0, len(input_string), interval)]

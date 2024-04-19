@@ -28,14 +28,17 @@ SOFTWARE.
 import random
 import string
 import uuid
-from key_generator.key_generator import generate
 from .convert import list2str2
-
 
 def rannum(number1, number2):
     try:
-        output = random.randint(int(number1), int(number2))
-        return output
+        return random.randint(int(number1), int(number2))
+    except ValueError:
+        print("Please enter a number1 to number2")
+
+def rannumfloat(number1, number2):
+    try:
+        return random.uniform(number1, number2)
     except ValueError:
         print("Please enter a number1 to number2")
 
@@ -52,17 +55,9 @@ def ranuuid(uuid_type='uuid1'):
         return uuid.uuid1()
     elif uuid_type == "uuid4":
         return uuid.uuid4()
-
 def ranchoice(list):
     try:
         output = random.choice(list)
-        return output
-    except ValueError:
-        print("Please enter a list")
-
-def ranchoices(list, number):
-    try:
-        output = random.choices(list, k=number)
         return output
     except ValueError:
         print("Please enter a list")
@@ -74,38 +69,12 @@ def ranshuffle(list):
     except ValueError:
         print("Please enter a list")
 
-def ranuniform(number1, number2):
-    try:
-        output = random.uniform(number1, number2)
-        return output
-    except ValueError:
-        print("Please enter a number1 to number2")
-
-def ranrandint(number1, number2):
-    try:
-        output = random.randint(number1, number2)
-        return output
-    except ValueError:
-        print("Please enter a number1 to number2")
-
 def ranrandrange(number1, number2):
     try:
         output = random.randrange(number1, number2)
         return output
     except ValueError:
         print("Please enter a number1 to number2")
-
-def rankeygen(min, max, seed=None):
-    if seed is None:
-        try:
-            return generate(max_atom_len=max, min_atom_len=min).get_key()
-        except ValueError:
-            print("Please enter a key_type and key_length")
-    else:
-        try:
-            return generate(max_atom_len=max, min_atom_len=min, seed=seed).get_key()
-        except ValueError:
-            print("Please enter a key_type and key_length")
 
 def rancolor():
     """RGB"""
@@ -142,5 +111,27 @@ def ranlossbin(codeword, error_rate):
 
     return ''.join(received_codeword)
 
+
+def ranlossbytes(data, loss_percentage):
+    if not 0 <= loss_percentage <= 100:
+        raise ValueError("Loss percentage should be between 0 and 100")
+
+    num_bytes_to_drop = int(len(data) * (loss_percentage / 100))
+    indices_to_drop = random.sample(range(len(data)), num_bytes_to_drop)
+
+    result = bytearray()
+    for i, byte in enumerate(data):
+        if i not in indices_to_drop:
+            result.append(byte)
+
+    return bytes(result)
+
 def rannumlist(number1, number2, maxrange):
     return [random.randint(number1, number2) for _ in range(maxrange)]
+
+def generate_binary_combinations(width):
+    binarys = []
+    total_combinations = 2 ** width
+    for i in range(total_combinations):
+        binarys.append(format(i, '0' + str(width) + 'b'))
+    return binarys

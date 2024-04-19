@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-2024 damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -54,6 +54,20 @@ def str2bin2(s):
 
 def bin2str(b):
     return ''.join(chr(int(b[i:i+8], 2)) for i in range(0, len(b), 8))
+
+def bytes2bin(data):
+    binary_string = ""
+    for byte in data:
+        binary_string += format(byte, '08b')  # Convert each byte to its binary representation with 8 bits
+    return binary_string
+
+def bin2bytes(binary_string):
+    bytes_data = bytearray()
+    for i in range(0, len(binary_string), 8):
+        byte = binary_string[i:i+8]
+        bytes_data.append(int(byte, 2))
+    return bytes(bytes_data)
+
 
 def list2str(list_):
     return '\n'.join(list_)

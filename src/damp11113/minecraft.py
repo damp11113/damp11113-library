@@ -50,6 +50,7 @@ class rcon_exception(Exception):
     pass
 
 #------------------------server------------------------------
+
 class mcserver:
     def __init__(self, server='server.jar', java='java', ramuse='1024', nogui=True, noguipp=False):
         self.serverf = server
@@ -143,7 +144,6 @@ def mctimestamp(uuid):
         return d['timestamp']
     except Exception as e:
         raise uuid2name_exception(f"error: {e}")
-
 
 #----------------------mcstatus------------------------
 
