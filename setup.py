@@ -22,7 +22,7 @@ common_dependencies = [
     "yt-dlp",
     "youtube_dl",
     "pafy",
-    "pafy2"
+    "pafy2",
     "tqdm",
     "qrcode",
     "python-barcode",
