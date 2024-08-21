@@ -45,7 +45,6 @@ common_dependencies = [
 # Windows-specific dependencies
 windows_dependencies = [
     "pywin32",
-    "win32gui",
     "comtypes",
 ]
 
