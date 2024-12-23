@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -26,10 +26,8 @@ SOFTWARE.
 """
 
 import libscrc
-import pyaudio
 import vlc
 import pafy, pafy2
-import ffmpeg
 import cv2
 import tqdm
 import numpy as np
@@ -38,12 +36,16 @@ import barcode
 from barcode.writer import ImageWriter
 import os
 from PIL import Image
-from .utils import get_size_unit
-from .randoms import rannum
-from .file import sizefolder3, removefile, allfiles, sort_files
 import yt_dlp as youtube_dl2
 from pydub import AudioSegment
 from pyzbar import pyzbar
+from scipy.signal import resample
+
+from .utils import get_size_unit
+from .randoms import rannum
+from .file import sizefolder3, removefile, allfiles, sort_files
+from .codec import DFPWMEncoder, DFPWMDecoder, DFPWMEncoder2, DFPWMEncoderStereo, DFPWMDecoderStereo
+
 
 class vlc_player:
     def __init__(self):
@@ -286,7 +288,7 @@ def im2ascii(image, width=None, height=None, new_width=None, chars=None, pixelss
             img = Image.open(image)
             img_flag = True
         except:
-            print(image, "Unable to find image ")
+            print(image, "Unable to find image")
 
         if width is None:
             width = img.size[0]
@@ -500,6 +502,7 @@ def change_color_bit(image, output, colorbit=64):
     a.save(output)
 
 #-----------------pyaudio-effect-------------------------
+
 def stretch(snd_array, factor, window_size, h):
     """ Stretches/shortens a sound, by some factor. """
     phase = np.zeros(window_size)
@@ -536,19 +539,6 @@ def pitchshift(snd_array, n, window_size=2**13, h=2**11):
     return speedx(stretched[window_size:], factor)
 
 def speed_change(sound, speed=1.0):
-    """
-    To using
-
-    from pydub import AudioSegment
-
-    sound = AudioSegment.from_file(infile)
-
-    slow_sound = speed_change(sound, 0.850)
-
-    slow_sound.export(outfile, format="mp3")
-
-
-    """
     # Manually override the frame_rate. This tells the computer how many
     # samples to play per second
     sound_with_altered_frame_rate = sound._spawn(sound.raw_data, overrides={
@@ -558,16 +548,6 @@ def speed_change(sound, speed=1.0):
      # so that regular playback programs will work right. They often only
      # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
-
-def getinputdevice():
-    lis = []
-    p = pyaudio.PyAudio()
-    info = p.get_host_api_info_by_index(0)
-    numdevices = info.get('deviceCount')
-    for i in range(0, numdevices):
-        if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
-            lis.append([i, p.get_device_info_by_host_api_device_index(0, i).get('name')])
-    return lis
 
 # --------------------------------------------------------
 
@@ -666,3 +646,49 @@ def audiofile2pyaudio(file, format, codec, startat=0, convertpyaudio=False, arra
         audio_bytes = audio_bytes.astype(arrayformat).reshape((-1, audio.channels)).tobytes()
 
     return audio_bytes, audio.frame_rate, audio.sample_width, audio.channels
+
+class QuickDFPWMEnc:
+    def __init__(self, version=1):
+        """version: 1 or else = original, 2 = experiment 1, 3 = stereo experiment"""
+        self.is_stereo = version == 3
+        if version == 2:
+            self.encoder = DFPWMEncoder2()
+        elif version == 3:
+            self.encoder = DFPWMEncoderStereo()
+        else:
+            self.encoder = DFPWMEncoder()
+
+    def encode(self, pcm_data, one_frame=False):
+        pcm_array = np.frombuffer(pcm_data, dtype=np.int16)
+        # Convert stereo PCM to mono if necessary
+        if not self.is_stereo:
+            mono_pcm_array = (pcm_array[0::2] + pcm_array[1::2]) // 2
+        else:
+            mono_pcm_array = pcm_array
+        # Convert 8-bit PCM data to DFPWM
+        pcm_8bit = ((mono_pcm_array + 32768) // 256).astype(np.uint8)
+        # Convert 8-bit PCM data to DFPWM
+        dfpwm_data = self.encoder.encode(pcm_8bit.tobytes(), one_frame)
+
+        return dfpwm_data
+
+
+class QuickDFPWMDec:
+    def __init__(self, sr=48000, stereo=False):
+        if stereo:
+            self.decoder = DFPWMDecoderStereo()
+        else:
+            self.decoder = DFPWMDecoder()
+        self.sr = sr
+
+    def decode(self, dfpwm_data):
+        # Decode DFPWM data back to 8-bit PCM
+        dfpwm_data = self.decoder.decode(dfpwm_data)
+        pcm_8bit_array = np.frombuffer(dfpwm_data, dtype=np.uint8)
+        # Convert 8-bit PCM data back to 16-bit PCM
+        pcm_array = (pcm_8bit_array.astype(np.int16) * 256) - 32768
+        # Resample back to the original sample rate
+        num_samples = int(len(pcm_array) * self.sr / self.sr * 2)
+        resampled_data = resample(pcm_array, num_samples)
+
+        return resampled_data.astype(np.int16).tobytes()

@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -34,7 +34,7 @@ import cpuinfo
 import GPUtil
 from .utils import get_format_time3, TextFormatter
 
-__version__ = '2024.4.19.19.0.0' # 2023/4/19 | 19 file (no __init__.py) | --- function |
+__version__ = '2024.12.23.18.0.0' # 2024/12/23 | 18 file (no __init__.py) | --- function |
 
 def pyversion(fullpython=False, fullversion=False, tags=False, date=False, compiler=False, implementation=False, revision=False):
     if fullpython:

@@ -1,6 +1,6 @@
 OPFONMW = Other Project From Other, Not Me Write
 use for easy code
 
-dearpygui_animate = mrtnRitter (https://github.com/mrtnRitter/)
-ofdm_codec = berndporr (https://github.com/berndporr/py_ofdm)
+dearpygui_animate (MIT) = mrtnRitter (https://github.com/mrtnRitter/)
 StepperLib = benkjor (https://github.com/benkjor)
+pyADPCM = kwatcharasupat (https://github.com/kwatcharasupat/pyADPCM)

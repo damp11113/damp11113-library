@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -33,12 +33,24 @@ from threading import Thread
 from time import sleep
 from .utils import get_size_unit2, center_string, TextFormatter, insert_string
 
-steps1 = ['[   ]', '[-  ]', '[-- ]', '[---]', '[ --]', '[  -]']
-steps2 = ['[   ]', '[-  ]', '[ - ]', '[  -]']
-steps3 = ['[   ]', '[-  ]', '[-- ]', '[ --]', '[  -]', '[   ]', '[  -]', '[ --]', '[-- ]', '[-  ]']
-steps4 = ['[   ]', '[-  ]', '[ - ]', '[  -]', '[   ]', '[  -]', '[ - ]', '[-  ]', '[   ]']
-steps5 = ['[   ]', '[  -]', '[ --]', '[---]', '[-- ]', '[-  ]']
-steps6 = ['[   ]', '[  -]', '[ - ]', '[-  ]']
+class Steps:
+    steps1 = ['[   ]', '[-  ]', '[-- ]', '[---]', '[ --]', '[  -]']
+    steps2 = ['[   ]', '[-  ]', '[ - ]', '[  -]']
+    steps3 = ['[   ]', '[-  ]', '[-- ]', '[ --]', '[  -]', '[   ]', '[  -]', '[ --]', '[-- ]', '[-  ]']
+    steps4 = ['[   ]', '[-  ]', '[ - ]', '[  -]', '[   ]', '[  -]', '[ - ]', '[-  ]', '[   ]']
+    steps5 = ['[   ]', '[  -]', '[ --]', '[---]', '[-- ]', '[-  ]']
+    steps6 = ['[   ]', '[  -]', '[ - ]', '[-  ]']
+    expand_contract = ['[    ]', '[=   ]', '[==  ]', '[=== ]', '[====]', '[ ===]', '[  ==]', '[   =]', '[    ]']
+    rotating_dots = ['.    ', '..   ', '...  ', '.... ', '.....', ' ....', '  ...', '   ..', '    .', '     ']
+    bouncing_ball = ['o     ', ' o    ', '  o   ', '   o  ', '    o ', '     o', '    o ', '   o  ', '  o   ', ' o    ', 'o     ']
+    left_right_dots = ['[    ]', '[.   ]', '[..  ]', '[... ]', '[....]', '[ ...]', '[  ..]', '[   .]', '[    ]']
+    expanding_square = ['[ ]', '[■]', '[■■]', '[■■■]', '[■■■■]', '[■■■]', '[■■]', '[■]', '[ ]']
+    spinner = ['|', '/', '-', '\\', '|', '/', '-', '\\']
+    zigzag = ['/   ', ' /  ', '  / ', '   /', '  / ', ' /  ', '/   ', '\\   ', ' \\  ', '  \\ ', '   \\', '  \\ ', ' \\  ', '\\   ']
+    arrows = ['←  ', '←← ', '←←←', '←← ', '←  ', '→  ', '→→ ', '→→→', '→→ ', '→  ']
+    snake = ['[>    ]', '[=>   ]', '[==>  ]', '[===> ]', '[====>]', '[ ===>]', '[  ==>]', '[   =>]', '[    >]']
+    loading_bar = ['[          ]', '[=         ]', '[==        ]', '[===       ]', '[====      ]', '[=====     ]', '[======    ]', '[=======   ]', '[========  ]', '[========= ]', '[==========]']
+
 
 class indeterminateStatus:
     def __init__(self, desc="Loading...", end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]', steps=None):
@@ -49,7 +61,7 @@ class indeterminateStatus:
 
         self._thread = Thread(target=self._animate, daemon=True)
         if steps is None:
-            self.steps = steps1
+            self.steps = Steps.steps1
         else:
             self.steps = steps
         self.done = False
@@ -86,8 +98,9 @@ class indeterminateStatus:
         # handle exceptions with those variables ^
         self.stop()
 
+# This class is developed in 3 October 2023 at 5:00 PM
 class LoadingProgress:
-    def __init__(self, total=100, totalbuffer=None, length=50, fill='█', fillbufferbar='█', desc="Loading...", status="", enabuinstatus=True, end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]', steps=None, unit="it", barbackground="-", shortnum=False, buffer=False, shortunitsize=1000, currentshortnum=False, show=True, clearline=True, indeterminate=False, barcolor="red", bufferbarcolor="white",barbackgroundcolor="black", color=True):
+    def __init__(self, total=100, totalbuffer=None, length=50, fill='█', fillbufferbar='█', desc="Loading...", status="", enabuinstatus=True, end="[ ✔ ]", timeout=0.1, fail='[ ❌ ]', steps=None, unit="it", barbackground="-", shortnum=False, buffer=False, shortunitsize=1000, currentshortnum=False, show=True, clearline=True, indeterminate=False, barcolor="red", bufferbarcolor="white", barbackgroundcolor="black", color=False):
         """
         Simple loading progress bar python
         @param total: change all total
@@ -134,7 +147,7 @@ class LoadingProgress:
         self._thread = Thread(target=self._animate, daemon=True)
 
         if steps is None:
-            self.steps = steps1
+            self.steps = Steps.steps1
         else:
             self.steps = steps
 
@@ -155,10 +168,10 @@ class LoadingProgress:
         self.startime = time.perf_counter()
         return self
 
-    def update(self, i):
+    def update(self, i=1):
         self.current += i
 
-    def updatebuffer(self, i):
+    def updatebuffer(self, i=1):
         self.currentbuffer += i
 
     def _animate(self):
@@ -272,8 +285,8 @@ class LoadingProgress:
             sleep(self.timeout)
 
             if self.printed and self.clearline:
-                cols = get_terminal_size((80, 20)).columns
-                print("\r" + " " * cols, end="", flush=True)
+                # This clears the previous printed line
+                print("\r" + " " * len(self.currentprint), end="", flush=True)
 
     def __enter__(self):
         self.start()

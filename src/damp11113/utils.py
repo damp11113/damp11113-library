@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2024 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -24,17 +24,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-import math
 import operator
-import time, sys
+import time
+import sys
 from functools import reduce
 from time import sleep
 from datetime import datetime
 from threading import Thread
 from .randoms import rannum
-from .file import removefile, readfile, writefile2, createfile
+from .file import removefile
 from inspect import getmembers, isfunction
-import ctypes
 from gtts import gTTS
 from playsound import playsound
 from PyQt5.QtGui import *
@@ -43,12 +42,12 @@ from PyQt5.QtWidgets import *
 from shutil import get_terminal_size
 from decimal import Decimal, getcontext
 
-def grade(number):
-    score = int(number)
+def grade(score: int):
+    if 0 >= score >= 100:
+        return '0 - 100 only'
+
     if score == 100:
         return "Perfect"
-    elif score >= 100:
-        return '0 - 100 only'
     elif score >= 95:
         return "A+"
     elif score >= 90:
@@ -110,8 +109,8 @@ def typing(text, speed=0.3):
         sys.stdout.flush()
         time.sleep(speed)
 
-def timestamp():
-    return datetime.timestamp(datetime.now())
+def timestamp(timezone=None):
+    return datetime.timestamp(datetime.now(timezone))
 
 def full_cpu(min=100, max=10000, speed=0.000000000000000001):
     _range = rannum(min, max)
@@ -197,7 +196,7 @@ def get_size_unit2(number, unitp, persec=True, unitsize=1024, decimal=True, spac
             if decimal:
                 num = f"{number:.2f}"
             else:
-                num = math.trunc(number)
+                num = int(number)
 
             if persec:
                 return f"{num}{space}{unit}{unitp}/s"
@@ -393,6 +392,35 @@ def scrollTextBySteps(text, scrollstep, scrollspace=10):
             scrolled_text += " "
 
     return scrolled
+
+def scrollTextBySteps_yield(text, scrollspace=10, max_loops=None, clearspace=False):
+    if len(text) < scrollspace:
+        raise ValueError("text is shorter than scroll space")
+    if clearspace:
+        text = text + " " * scrollspace
+
+    scrolled_text = text
+    text_length = len(text)
+    loop_count = 0
+    scroll_length = text_length  # Full scroll loop when text has shifted completely
+
+    while True:
+        # Prepare the scrolled text
+        scrolled = f"{scrolled_text[:scrollspace]:<{scrollspace}}"
+        yield scrolled  # Yield the current scrolled text
+
+        # Shift the text by one character to the right
+        scrolled_text = scrolled_text[1:] + scrolled_text[0]
+
+        # If max_loops is set, stop when loop_count reaches max_loops
+        if max_loops is not None and loop_count >= max_loops:
+            break
+
+        # Increment the loop count if we return to the original text position
+        scroll_length -= 1
+        if scroll_length == 0:
+            loop_count += 1
+            scroll_length = text_length  # Reset the scroll length for the next loop
 
 def calculate_pi(n):
     getcontext().prec = 50  # Set precision to 50 decimal places
@@ -638,3 +666,60 @@ def limit_string_in_line(text, limit):
 
 def split_string_at_intervals(input_string, interval):
     return [input_string[i:i+interval] for i in range(0, len(input_string), interval)]
+
+def bytesfiller(byte_sequence: bytes, bit_length):
+    # Calculate the current length in bits
+    current_bit_length = len(byte_sequence) * 8
+
+    # Check if padding is necessary
+    if current_bit_length >= bit_length:
+        return byte_sequence[:bit_length // 8]
+
+    # Calculate the number of zero bits to add
+    additional_bits = bit_length - current_bit_length
+
+    # Create the padding bytes
+    additional_bytes = ((additional_bits + 7) // 8) # Round up to the nearest byte
+    padding = b"\\xsb" # start fill
+    padding += b'\x00' * additional_bytes
+
+    # Combine the original bytes with the padding
+    padded_bytes = byte_sequence + padding
+
+    # Return only the necessary number of bytes
+    return padded_bytes[:bit_length // 8]
+
+def bytesdefiller(padded_bytes: bytes):
+    return padded_bytes.split(b"\\xsb")[0]
+
+def karaoke_print(text, delay=0.1, ln=True):
+    printed_text = ""
+    for i, char in enumerate(text):
+        # Print already printed text normally
+        print(printed_text + char, end='', flush=True)
+
+        # Calculate not yet printed text to dim
+        not_printed_text = text[i + 1:]
+        dimmed_text = ''.join([f"\033[2m{char}\033[0m" for char in not_printed_text])
+
+        # Print dimmed text
+        print(dimmed_text, end='', flush=True)
+
+        # Wait before printing the next character
+        time.sleep(delay)
+
+        # Clear the line for the next iteration
+        print('\r', end='', flush=True)
+
+        # Prepare the updated printed_text for the next iteration
+        printed_text += char
+
+    if ln:
+        print("")
+
+def split_integer_with_percentage(value, percentage):
+    # Convert the percentage from 0-100 range to 0-1 range
+    percentage_decimal = percentage / 100
+    part1 = round(value * percentage_decimal)
+    part2 = value - part1
+    return part1, part2

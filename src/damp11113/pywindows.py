@@ -1,7 +1,7 @@
 """
-This module work only in windows
+This module will work only in windows
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 

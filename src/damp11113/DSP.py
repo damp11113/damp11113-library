@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2024 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -29,12 +29,9 @@ import itertools
 import math
 import numpy as np
 import scipy
-from scipy.signal import chirp
+from scipy.signal import chirp, butter, lfilter
 from .convert import str2bin, str2binnparray, bin2str
 
-print("Please Using Float32 for this library on DSP")
-
-# use paFloat32
 def FSKEncoder(data, samplerate=48000, baudrate=100, tone1=1000, tone2=2000):
     duration = 1 / baudrate  # in seconds
 
@@ -711,6 +708,7 @@ def OFDMDecoder(received_signal, samplerate=48000, subcarrier_frequency=1000, cy
     return decoded_data
 
 class FSKEncoderV5:
+    # opts = {'baud': 520+(5/6), 'space': 1562.5, 'mark': 2083+(1/3), 'sampleRate': 48000}
     def __init__(self, opts):
         if not isinstance(self, FSKEncoderV5):
             return FSKEncoderV5(opts)
@@ -977,3 +975,107 @@ def stereo2mono(stereo_signal):
     left_channel = stereo_signal[::2]
     right_channel = stereo_signal[1::2]
     return left_channel, right_channel
+
+class QuadDecoder:
+    def __init__(self, sample_rate):
+        self.sample_rate = sample_rate
+        self.audio_in_gain = 0.1
+        self.audio_out_gain = 10.0
+        self.lfilt_cutoff = 0.5
+        self.logic_fade = 3.5
+
+        # Initialize filters
+        self.sub_filter1 = self.create_filter(120)  # Example cutoff frequency
+        self.sub_filter2 = self.create_filter(120)
+
+        # Levels
+        self.out_level = 1.0
+        self.front_level = 0.5
+        self.surround_level = 0.5
+
+    def create_filter(self, cutoff):
+        nyquist = 0.5 * self.sample_rate
+        normal_cutoff = cutoff / nyquist
+        b, a = butter(1, normal_cutoff, btype='low', analog=False)
+        return b, a
+
+    def apply_filter(self, data, filter_coeffs):
+        b, a = filter_coeffs
+        return lfilter(b, a, data)
+
+    def qs_matrix_decode(self, lt, rt):
+        fl = lt + (rt * 0.414)
+        fr = rt + (lt * 0.414)
+        sl = lt + (rt * -0.414)
+        sr = -rt + (lt * 0.414)
+        return fl, fr, sl, sr
+
+    def process(self, lt_in, rt_in):
+        # Apply input gain
+        lt = lt_in * self.audio_in_gain
+        rt = rt_in * self.audio_in_gain
+
+        # QS Matrix Decode
+        fl, fr, sl, sr = self.qs_matrix_decode(lt, rt)
+
+        # Apply output gain
+        fl_out = fl * self.audio_out_gain * self.front_level * self.out_level
+        fr_out = fr * self.audio_out_gain * self.front_level * self.out_level
+        sl_out = sl * self.audio_out_gain * self.surround_level * self.out_level
+        sr_out = sr * self.audio_out_gain * self.surround_level * self.out_level
+
+        return fl_out, fr_out, sl_out, sr_out
+
+class QuadEncoder:
+    AUDIO_BUFLEN = 64
+    AUDIO_IN_GAIN = 0.1
+    AUDIO_OUT_GAIN = 10.0
+
+    QS_ENCODE = 0
+    SQ_ENCODE = 1
+
+    def __init__(self, mode=QS_ENCODE):
+        self.mode = mode
+        self.in_buf = np.zeros((self.AUDIO_BUFLEN, 4))  # Buffer for 4 input channels
+        self.out_buf = np.zeros((self.AUDIO_BUFLEN, 2))  # Buffer for 2 output channels
+        self.init_filters()
+
+    def init_filters(self):
+        # Create high-pass filters
+        self.hpf_fl = self.create_hpf()
+        self.hpf_fr = self.create_hpf()
+        self.hpf_sl = self.create_hpf()
+        self.hpf_sr = self.create_hpf()
+
+    def create_hpf(self, cutoff=10.0, fs=44100.0, order=2):
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        b, a = butter(order, normal_cutoff, btype='high', analog=False)
+        return b, a
+
+    def highpass_filter(self, data, filter_params):
+        b, a = filter_params
+        return lfilter(b, a, data)
+
+    def process(self, fl, fr, sl, sr):
+        # Normalize inputs
+        fl = self.highpass_filter(fl * self.AUDIO_IN_GAIN, self.hpf_fl)
+        fr = self.highpass_filter(fr * self.AUDIO_IN_GAIN, self.hpf_fr)
+        sl = self.highpass_filter(sl * self.AUDIO_IN_GAIN, self.hpf_sl)
+        sr = self.highpass_filter(sr * self.AUDIO_IN_GAIN, self.hpf_sr)
+
+        # Process audio
+        for i in range(self.AUDIO_BUFLEN):
+            if self.mode == self.QS_ENCODE:
+                # QS encode
+                lt = fl[i] + 0.414 * fr[i] + sl[i] + 0.414 * sr[i]
+                rt = 0.414 * fl[i] + fr[i] - 0.414 * sl[i] - sr[i]
+            elif self.mode == self.SQ_ENCODE:
+                # SQ encode
+                lt = fl[i] - 0.707 * sl[i] + 0.707 * sr[i]
+                rt = fr[i] - 0.707 * sl[i] + 0.707 * sr[i]
+
+            self.out_buf[i, 0] = lt * self.AUDIO_OUT_GAIN
+            self.out_buf[i, 1] = rt * self.AUDIO_OUT_GAIN
+
+        return self.out_buf

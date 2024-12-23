@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -135,3 +135,25 @@ def generate_binary_combinations(width):
     for i in range(total_combinations):
         binarys.append(format(i, '0' + str(width) + 'b'))
     return binarys
+
+
+def ranchoosewithrate(choices_probabilities):
+    """
+    Randomly choose an item from the given choices-probabilities dictionary.
+
+    Args:
+        choices_probabilities (dict): Dictionary where keys are choices and values are probabilities.
+
+    Returns:
+        The randomly chosen item.
+
+    Examples: choices_probabilities = {'A': 30, 'B': 20, 'C': 25, 'D': 25}
+    """
+    choices = list(choices_probabilities.keys())
+    probabilities = list(choices_probabilities.values())
+
+    if sum(probabilities) != 100:
+        raise ValueError("Probabilities should add up to 100")
+
+    probabilities = [p / 100 for p in probabilities]
+    return random.choices(choices, weights=probabilities, k=1)[0]

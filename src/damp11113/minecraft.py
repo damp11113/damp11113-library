@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -64,7 +64,7 @@ class mcserver:
             if self.noguipp:
                 self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} --nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             else:
-                self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)        
+                self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
             self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf}', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -84,7 +84,8 @@ class uuid2name:
     def __init__(self) -> None:
         pass
 
-    def getmcuuid(self, player_name):
+    @staticmethod
+    def getmcuuid(player_name):
         try:
             r = requests.get(f"https://api.mojang.com/users/profiles/minecraft/{player_name}")
             if r.text == '':
@@ -94,7 +95,8 @@ class uuid2name:
         except Exception as e:
             raise uuid2name_exception(e)
 
-    def getmcname(self, player_uuid):
+    @staticmethod
+    def getmcname(player_uuid):
         try:
             r = requests.get(f"https://api.mojang.com/user/profiles/{player_uuid}/names")
         except Exception as e:
@@ -105,13 +107,15 @@ class uuid2name:
         except KeyError:
             raise uuid2name_exception(f"player not found")
 
-    def getmcnamejson(self, player_uuid):
+    @staticmethod
+    def getmcnamejson(player_uuid):
         try:
             return requests.get(f"https://api.mojang.com/user/profiles/{player_uuid}/names").text
         except Exception as e:
             raise uuid2name_exception(f"get mc name error: {e}")
 
-    def getmcuuidjson(self, player_name):
+    @staticmethod
+    def getmcuuidjson(player_name):
         try:
             return requests.get(f"https://api.mojang.com/users/profiles/minecraft/{player_name}").text
         except Exception as e:

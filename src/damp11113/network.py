@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -27,6 +27,8 @@ SOFTWARE.
 
 import socket
 import traceback
+import warnings
+
 from tqdm import tqdm
 import paho.mqtt.client as mqtt
 import time
@@ -35,7 +37,7 @@ from .convert import byte2str
 import re
 import requests
 from .utils import emb
-from .processbar import LoadingProgress, steps5
+from .processbar import LoadingProgress, Steps
 
 class vc_exception(Exception):
     pass
@@ -75,7 +77,7 @@ def ip_port_check(ip, port):
 #-------------------------download---------------------------
 
 def loadfile(url, filename):
-    progress = LoadingProgress(desc=f'loading file from {url}', steps=steps5, unit="B", shortunitsize=1024, shortnum=True)
+    progress = LoadingProgress(desc=f'loading file from {url}', steps=Steps.steps5, unit="B", shortunitsize=1024, shortnum=True)
     progress.start()
     try:
         progress.desc = f'Downloading {filename} from {url}'
@@ -213,9 +215,11 @@ def file_receive(host, port, buffsize=4096, speed=0.0000001):
 
 #----------------------line-api------------------------
 
+# This function is obsoleted! Please use discord, slack, ms team webhook for notify.
 class line_notify:
     def __init__(self, token):
         self.token = token
+        warnings.warn("Line notify will disable in 1/4/2025 mean this function can't be use it. Please use discord, slack, ms team webhook for notify.")
 
     def send(self, message):
         r = requests.post(f"https://notify-api.line.me/api/notify", headers={"Authorization": f"Bearer {self.token}"}, data={"message": message})

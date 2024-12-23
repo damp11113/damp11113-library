@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2023 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -32,6 +32,12 @@ import logging
 
 logger = logging.getLogger('PyserHTTP')
 
+import socket
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
 class HTTPServer:
     def __init__(self):
         self.routes = {}
@@ -40,7 +46,6 @@ class HTTPServer:
         def decorator(func):
             self.routes[path] = {'handler': func, 'methods': methods}
             return func
-
         return decorator
 
     def parse_request(self, request):
@@ -98,16 +103,20 @@ class HTTPServer:
                     request_data, headers = {}, {}
 
                 if path in self.routes and method in self.routes[path]['methods']:
-                    response = "HTTP/1.0 200 OK\r\n\r\n"
+                    response_body = ""
+                    response_status = "HTTP/1.0 200 OK"
                     logger.info(f"HTTP/1.0 200 OK | {path}")
                     result = self.routes[path]['handler'](request_data, headers)
                     if isinstance(result, dict):
-                        response += json.dumps(result)
+                        response_body = json.dumps(result)
                     elif isinstance(result, str):
-                        response += result
+                        response_body = result
                 else:
-                    response = "HTTP/1.0 404 Not Found\r\n\r\n"
+                    response_status = "HTTP/1.0 404 Not Found"
+                    response_body = ""
                     logger.warning(f"HTTP/1.0 404 Not Found | {path}")
+
+                response = f"{response_status}\r\nServer: PyserHTTP/1.0\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
 
                 client_socket.sendall(response.encode())
                 client_socket.close()

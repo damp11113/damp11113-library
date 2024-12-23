@@ -1,6 +1,6 @@
 """
 damp11113-library - A Utils library and Easy to use. For more info visit https://github.com/damp11113/damp11113-library/wiki
-Copyright (C) 2021-2024 damp11113 (MIT)
+Copyright (C) 2021-present damp11113 (MIT)
 
 Visit https://github.com/damp11113/damp11113-library
 
@@ -477,3 +477,17 @@ def phonetic2str(phonetic):
     words = phonetic.split()
     translated_string = ''.join([key for word in words for key, value in phonetic_alphabet.items() if value == word])
     return translated_string
+
+
+def str2bool(s):
+    true_values = {'true', 'yes', '1', 'on', 'y', 't'}
+    false_values = {'false', 'no', '0', 'off', 'n', 'f'}
+
+    s = s.strip().lower()
+
+    if s in true_values:
+        return True
+    elif s in false_values:
+        return False
+    else:
+        raise ValueError(f"Invalid boolean string: {s}")
