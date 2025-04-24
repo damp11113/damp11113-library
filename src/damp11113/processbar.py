@@ -26,7 +26,7 @@ SOFTWARE.
 """
 
 from shutil import get_terminal_size
-from itertools import cycle, islice
+from itertools import cycle
 import math
 import time
 from threading import Thread

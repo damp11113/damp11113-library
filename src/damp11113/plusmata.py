@@ -25,7 +25,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 import time
-
 from pymata_aio.pymata3 import PyMata3        # type: ignore
 from pymata_aio.constants import Constants    # type: ignore
 from PIL import Image

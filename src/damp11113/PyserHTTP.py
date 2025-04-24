@@ -25,21 +25,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import json
 import os
-import socket
 import logging
+import warnings
+import socket
+import json
 
 logger = logging.getLogger('PyserHTTP')
 
-import socket
-import json
-import logging
-
-logger = logging.getLogger(__name__)
-
 class HTTPServer:
     def __init__(self):
+        warnings.warn("PyserHTTP is experimental and not recommended for production use.", DeprecationWarning)
+
         self.routes = {}
 
     def route(self, path, methods=['GET']):

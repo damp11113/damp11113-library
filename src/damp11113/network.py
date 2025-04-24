@@ -27,13 +27,10 @@ SOFTWARE.
 
 import socket
 import traceback
-import warnings
-
 from tqdm import tqdm
 import paho.mqtt.client as mqtt
 import time
 from .file import *
-from .convert import byte2str
 import re
 import requests
 from .utils import emb
@@ -62,17 +59,6 @@ def youtube_search(search, firstresult=True):
         return f"https://www.youtube.com/watch?v={search_result[0]}"
     else:
         return search_result
-
-#---------------------------ip--------------------------------
-
-def ip_port_check(ip, port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.connect((ip, port))
-        rech = f'{ip}:{port} is connected'
-    except socket.error as e:
-        raise ip_exeption(f'{ip}:{port} is disconnected')
-    return rech
 
 #-------------------------download---------------------------
 
@@ -175,7 +161,7 @@ def tcp_receive(host, port):
         data = conn.recv(1024)
         conn.close()
         print(f"tcp receive from {host}:{port}")
-        return byte2str(data)
+        return data.decode('utf-8')
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
 
@@ -186,7 +172,7 @@ def udp_receive(host, port):
         data, addr = s.recvfrom(1024)
         s.close()
         print(f"udp receive from {host}:{port}")
-        return byte2str(data)
+        return data.decode('utf-8')
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
 
@@ -198,7 +184,7 @@ def file_receive(host, port, buffsize=4096, speed=0.0000001):
         conn, addr = s.accept()
         received = conn.recv(buffsize)
         filename = received.decode()
-        filesize = int(byte2str(conn.recv(1024), decode='utf-16'))
+        filesize = int(conn.recv(1024).decode('utf-16'))
         progress_bar = tqdm(total=filesize, unit='B', unit_scale=True, desc=f'Receiving {filename}')
         with open(filename, 'wb') as f:
             while True:
@@ -212,34 +198,3 @@ def file_receive(host, port, buffsize=4096, speed=0.0000001):
         conn.close()
     except Exception as e:
         raise receive_exception(f'receive error: {e}')
-
-#----------------------line-api------------------------
-
-# This function is obsoleted! Please use discord, slack, ms team webhook for notify.
-class line_notify:
-    def __init__(self, token):
-        self.token = token
-        warnings.warn("Line notify will disable in 1/4/2025 mean this function can't be use it. Please use discord, slack, ms team webhook for notify.")
-
-    def send(self, message):
-        r = requests.post(f"https://notify-api.line.me/api/notify", headers={"Authorization": f"Bearer {self.token}"}, data={"message": message})
-        if r.status_code == 200:
-            return r.text
-        else:
-            raise line_api_exception(f"line notify error: {r.text}")
-
-    def send_file(self, file):
-        r = requests.post(f"https://notify-api.line.me/api/notify", headers={"Authorization": f"Bearer {self.token}"}, files={"imageFile": file})
-        if r.status_code == 200:
-            return r.text
-        else:
-            raise line_api_exception(f"LINE notify error: {r.status_code}")
-
-#----------------------checker------------------------
-
-def distrochecker(giftcode):
-    r = requests.get(f'https://discordapp.com/api/v9/entitlements/gift-codes/{giftcode}?with_application=false&with_subscription_plan=true')
-    if r == 200:
-        return ('ok', giftcode)
-    else:
-        return ('error', giftcode)

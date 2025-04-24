@@ -27,8 +27,7 @@ SOFTWARE.
 
 import random
 import string
-import uuid
-from .convert import list2str2
+import warnings
 
 def rannum(number1, number2):
     try:
@@ -50,32 +49,6 @@ def ranstr(charset):
     except ValueError:
         print("Please enter a number charset")
 
-def ranuuid(uuid_type='uuid1'):
-    if uuid_type == "uuid1":
-        return uuid.uuid1()
-    elif uuid_type == "uuid4":
-        return uuid.uuid4()
-def ranchoice(list):
-    try:
-        output = random.choice(list)
-        return output
-    except ValueError:
-        print("Please enter a list")
-
-def ranshuffle(list):
-    try:
-        output = random.shuffle(list)
-        return output
-    except ValueError:
-        print("Please enter a list")
-
-def ranrandrange(number1, number2):
-    try:
-        output = random.randrange(number1, number2)
-        return output
-    except ValueError:
-        print("Please enter a number1 to number2")
-
 def rancolor():
     """RGB"""
     return (rannum(1, 255), rannum(1, 255), rannum(1, 255))
@@ -89,13 +62,10 @@ def rantextuplow(text):
             ct.append(str(i).lower())
         elif r == 2:
             ct.append(str(i).upper())
-    return list2str2(ct)
+    return ''.join(ct)
 
 def ranstruplow(charset):
     return rantextuplow(ranstr(charset))
-
-def randistro():
-    return f'https://discord.gift/{ranstruplow(23)}'
 
 def ranlossbin(codeword, error_rate):
     # Convert the error rate to a number of errors to introduce
@@ -111,8 +81,19 @@ def ranlossbin(codeword, error_rate):
 
     return ''.join(received_codeword)
 
-
 def ranlossbytes(data, loss_percentage):
+    if not 0 <= loss_percentage <= 100:
+        raise ValueError("Loss percentage should be between 0 and 100")
+
+    num_bytes_to_drop = int(len(data) * (loss_percentage / 100))
+    drop_indices = set(random.sample(range(len(data)), num_bytes_to_drop))
+
+    # Use list comprehension to filter out the indices to drop
+    return bytes(byte for i, byte in enumerate(data) if i not in drop_indices)
+
+def old_ranlossbytes(data, loss_percentage):
+    warnings.warn("This function is deprecated. Use ranlossbytes instead.", DeprecationWarning)
+
     if not 0 <= loss_percentage <= 100:
         raise ValueError("Loss percentage should be between 0 and 100")
 
@@ -136,8 +117,7 @@ def generate_binary_combinations(width):
         binarys.append(format(i, '0' + str(width) + 'b'))
     return binarys
 
-
-def ranchoosewithrate(choices_probabilities):
+def ranChooseWithRate(choices_probabilities):
     """
     Randomly choose an item from the given choices-probabilities dictionary.
 

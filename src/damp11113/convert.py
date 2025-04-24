@@ -27,7 +27,7 @@ SOFTWARE.
 
 import datetime
 from iso639 import languages
-from typing import List, Any
+from typing import Any
 import numpy as np
 
 def timestamp2date(timestamp, display='%Y-%m-%d %H:%M:%S'):
@@ -67,19 +67,6 @@ def bin2bytes(binary_string):
         byte = binary_string[i:i+8]
         bytes_data.append(int(byte, 2))
     return bytes(bytes_data)
-
-
-def list2str(list_):
-    return '\n'.join(list_)
-
-def list2str2(list_):
-    return ''.join(list_)
-
-def str2list(string):
-    return string.split('\n')
-
-def byte2str(b, decode='utf-8'):
-    return b.decode(decode)
 
 def bin2bool(bin):
     bin = list(bin)

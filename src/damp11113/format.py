@@ -33,7 +33,6 @@ import bitarray
 import random
 import xml.etree.ElementTree as ET
 from datetime import datetime
-import numpy as np
 
 # multiplex4 (m4) format
 def m4write(filename, sample_rate, data_format, data_streams):

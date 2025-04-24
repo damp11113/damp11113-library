@@ -27,7 +27,6 @@ SOFTWARE.
 
 import colorsys
 from .media import PIL2CV2, CV22PIL
-from PIL import Image, ImageEnhance
 import cv2
 import numpy
 
@@ -123,15 +122,3 @@ def BlackAndWhite(pil_array, weights):
             gray = max(0, min(255, int(round(gray))))
             pix[x, y] = (gray, gray, gray)
     return pil_array
-
-def AdjBrightness(pil_array, brightness=1):
-    return ImageEnhance.Brightness(pil_array).enhance(brightness)
-
-def AdjContrast(pil_array, contrast=1):
-    return ImageEnhance.Contrast(pil_array).enhance(contrast)
-
-def AdjSharpness(pil_array, sharpness=1):
-    return ImageEnhance.Sharpness(pil_array).enhance(sharpness)
-
-def AdjColor(pil_array, color=1):
-    return ImageEnhance.Color(pil_array).enhance(color)

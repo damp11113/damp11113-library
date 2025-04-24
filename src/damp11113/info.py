@@ -34,7 +34,7 @@ import cpuinfo
 import GPUtil
 from .utils import get_format_time3, TextFormatter
 
-__version__ = '2024.12.23.18.0.0' # 2024/12/23 | 18 file (no __init__.py) | --- function |
+__version__ = '2025.1.22' # 2025 | 1 revisions in year | 22 file (no __init__.py count)
 
 def pyversion(fullpython=False, fullversion=False, tags=False, date=False, compiler=False, implementation=False, revision=False):
     if fullpython:

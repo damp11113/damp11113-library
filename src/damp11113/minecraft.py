@@ -24,13 +24,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-
-from mcstatus import JavaServer
+import warnings
 import json
 import requests
 from base64 import b64decode as base64decode
-import subprocess
-from mcrcon import MCRcon
 import socket
 import struct
 
@@ -46,38 +43,7 @@ class server_exeption(Exception):
 class install_exception(Exception):
     pass
 
-class rcon_exception(Exception):
-    pass
 
-#------------------------server------------------------------
-
-class mcserver:
-    def __init__(self, server='server.jar', java='java', ramuse='1024', nogui=True, noguipp=False):
-        self.serverf = server
-        self.java = java
-        self.ramuse = ramuse
-        self.nogui = nogui
-        self.noguipp = noguipp
-
-    def start(self):
-        if self.nogui:
-            if self.noguipp:
-                self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} --nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            else:
-                self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf} nogui', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        else:
-            self.s = subprocess.Popen(f'{self.java} -Xms{self.ramuse}M -Xmx{self.ramuse}M -jar {self.serverf}', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    def stop(self):
-        self.command('stop')
-        self.s.communicate()
-
-    def command(self, command):
-        self.s.stdin.write(command + '\n')
-
-    def log(self):
-        return self.s.stdout.read()
-        
 #------------------get-uuid2name------------------
 
 class uuid2name:
@@ -151,87 +117,15 @@ def mctimestamp(uuid):
 
 #----------------------mcstatus------------------------
 
-def mcstatusplayerparse(sample):
-    listplayer = []
-    for p in sample:
-        listplayer.append(p.name)
-    return listplayer
 
-class mcstatus:
-    def __init__(self, ip):
-        self.server = JavaServer.lookup(ip)
-
-    def raw(self):
-        try:
-            return self.server.status().raw
-        except Exception as e:
-            raise mcstatus_exception(f"raw mc status error: {e}")
-
-    def players(self):
-        try:
-            return self.server.status().players
-        except Exception as e:
-            raise mcstatus_exception(f"players mc status error: {e}")
-
-    def favicon(self):
-        try:
-            return self.server.status().favicon
-        except Exception as e:
-            raise mcstatus_exception(f"favicon mc status error: {e}")
-
-    def description(self):
-        try:
-            return self.server.status().description
-        except Exception as e:
-            raise mcstatus_exception(f"description mc status error: {e}")
-
-    def version(self):
-        try:
-            return self.server.status().version
-        except Exception as e:
-            raise mcstatus_exception(f"version mc status error: {e}")
-
-    def ping(self):
-        try:
-            return self.server.ping()
-        except Exception as e:
-            raise mcstatus_exception(f"ping mc status error: {e}")
-
-    def query_raw(self):
-        try:
-            return self.server.query().raw
-        except Exception as e:
-            raise mcstatus_exception(f"query raw mc status error: {e}")
-
-    def query_players(self):
-        try:
-            return self.server.query().players
-        except Exception as e:
-            raise mcstatus_exception(f"query players mc status error: {e}")
-
-    def query_map(self):
-        try:
-            return self.server.query().map
-        except Exception as e:
-            raise mcstatus_exception(f"query map mc status error: {e}")
-
-    def query_motd(self):
-        try:
-            return self.server.query().motd
-        except Exception as e:
-            raise mcstatus_exception(f"query motd mc status error: {e}")
-
-    def query_software(self):
-        try:
-            return self.server.query().software
-        except Exception as e:
-            raise mcstatus_exception(f"query software mc status error: {e}")
 
 class mcstatusv2:
     def __init__(self, ip, port=25565):
         """
         To use visit https://chat.openai.com/share/966ad89a-3785-4d94-a4cc-7cb05c73bab3
         """
+        warnings.warn("mcstatusv2 is experimental and not fully implemented", Warning)
+
         self.ip = ip
         self.port = port
 
@@ -273,35 +167,11 @@ class mcstatusv2:
         except mcstatus_exception as e:
             raise mcstatus_exception(f"Error parsing status: {e}")
 
-#----------------------Rcon------------------------
-
-class Rcon:
-    def __init__(self, ip, password, port=25575, tls=0, timeout=5):
-        self.ip = ip
-        self.port = port
-        self.password = password
-        self.rcon = MCRcon(host=ip, port=port, password=password, tlsmode=tls, timeout=timeout)
-
-    def connect(self):
-        try:
-            self.rcon.connect()
-        except Exception as e:
-            raise rcon_exception(f"rcon connect error: {e}")
-
-    def send(self, command):
-        try:
-            return self.rcon.command(command)
-        except Exception as e:
-            raise rcon_exception(f"rcon send error: {e}")
-
-    def disconnect(self):
-        try:
-            self.rcon.disconnect()
-        except Exception as e:
-            raise rcon_exception(f"rcon disconnect error: {e}")
+#----------------------Rcon-----------------------
 
 class RconV2:
     def __init__(self, host, port, password):
+        warnings.warn("RconV2 is experimental and not fully implemented", Warning)
         self.host = host
         self.port = port
         self.password = password

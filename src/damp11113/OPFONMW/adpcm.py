@@ -1,6 +1,4 @@
 import numpy as np
-from typing import List
-
 
 class ADPCMState:
     def __init__(self):

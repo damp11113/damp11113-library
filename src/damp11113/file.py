@@ -26,7 +26,6 @@ SOFTWARE.
 """
 
 import os
-import shutil
 import zipfile
 import json
 import natsort
@@ -35,15 +34,11 @@ import configparser
 
 #-----------------------------read---------------------------------------
 
-def readfile(file, decode='utf-8'):
+def quickRead(file, decode='utf-8'):
     with open(file, 'r', encoding=decode) as f:
         return f.read()
 
-def readfileline(file, line):
-    with open(file, 'r') as f:
-        return f.readlines()[line]
-
-def readjson(file):
+def quickReadJson(file):
     with open(file, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -57,87 +52,16 @@ def readini(filename, section_name, parameter_name):
         print(f"Section '{section_name}' or parameter '{parameter_name}' not found in the INI file.")
         return None
 
-#-----------------------------move---------------------------------------
-
-def movefile(file, to):
-    shutil.move(file, to)
-
-def movefolder(folder, to):
-    shutil.move(folder, to)
-
-#-----------------------------copy---------------------------------------
-
-def copyfile(file, to):
-    shutil.copy(file, to)
-
-def copyfolder(folder, to):
-    shutil.copytree(folder, to)
-
-#-----------------------------remove--------------------------------------
-
-def removefile(file):
-    os.remove(file)
-
-def removefolder(folder):
-    shutil.rmtree(folder)
-
-#-----------------------------renamefile-----------------------------------
-
-def renamefile(file, to):
-    os.rename(file, to)
-
-def renamefolder(folder, to):
-    os.rename(folder, to)
-
-#----------------------------------create-----------------------------------
-
-def createfolder(folder):
-    os.mkdir(folder)
-
-def createfile(file):
-    open(file, 'a').close()
-
 #----------------------------------write------------------------------------
 
-def writefile(file, data):
-    with open(file, 'a') as f:
-        f.write(data + '\n')
-        f.close()
-
-def writefile2(file, data, encode="utf-8"):
+def quickWrite(file, data, encode="utf-8"):
     with open(file, 'w', encoding=encode) as f:
         f.write(data)
         f.close()
 
-def writefile3(file, data):
-    with open(file, 'a') as f:
-        f.write(data)
-        f.close()
-
-def writefileline(file, line, data):
-    with open(file, 'r') as f:
-        lines = f.readlines()
-        lines[line] = data
-        with open(file, 'w') as f:
-            f.writelines(lines)
-
-def writejson(file, data):
+def quickWriteJson(file, data):
     with open(f'{file}.json', 'w') as f:
         json.dump(data, f)
-
-
-#----------------------------------append-----------------------------------
-
-def appendfile(file, data):
-    with open(file, 'a') as f:
-        f.write(data)
-
-def appendfileline(file, line, data):
-    with open(file, 'r') as f:
-        lines = f.readlines()
-        lines[line] = data
-        with open(file, 'a') as f:
-            f.writelines(lines)
 
 #--------------------------------------zip----------------------------------
 
@@ -186,7 +110,72 @@ def sizefolder3(folder):
 
 #----------------------------------all-------------------------------------
 
-def allfiles(folder):
+def allfiles(folder, scan_subfolders=False, include_path=False, sort_by=None, sort_reverse=False, valid_extensions=None):
+    """
+    Scans files in a specified folder (and optionally its subfolders), and returns a list of file names
+    with options for sorting and including the full file path.
+
+    Parameters:
+    - folder (str): The path of the folder to scan for files.
+    - scan_subfolders (bool): If True, recursively scans subfolders. Defaults to False.
+    - include_path (bool): If True, includes the full path of each file. Defaults to False.
+    - sort_by (str or None): Defines the sorting criterion. Options are:
+        - 'name': Sort files alphabetically.
+        - 'size': Sort files by size.
+        - 'created': Sort files by creation time.
+        - 'modified': Sort files by last modified time.
+        Defaults to None (no sorting).
+    - sort_reverse (bool): If True, sorts in reverse order (descending). Defaults to False.
+    - valid_extensions (tuple or None): A tuple of file extensions to include (e.g., ('.mp4', '.jpg')). If None, no filter is applied.
+
+    Returns:
+    - list: A list of file names or paths, sorted as per the specified options.
+
+    Example:
+    - allfiles("/path/to/folder", scan_subfolders=True, include_path=True, sort_by="name", sort_reverse=True, valid_extensions=('.mp4', '.jpg'))
+    """
+
+    # If valid_extensions is None, disable the filter and return all files
+    if valid_extensions is None:
+        valid_extensions = []
+
+    all_files = []
+
+    # Scan files in subfolders if needed
+    if scan_subfolders:
+        for root, dirs, files in os.walk(folder):
+            for file in files:
+                # If valid_extensions is empty, no filtering is applied
+                if not valid_extensions or file.endswith(valid_extensions):
+                    file_path = os.path.join(root, file) if include_path else file
+                    all_files.append(file_path)
+    else:
+        for file in os.listdir(folder):
+            # If valid_extensions is empty, no filtering is applied
+            if not valid_extensions or file.endswith(valid_extensions):
+                file_path = os.path.join(folder, file) if include_path else file
+                all_files.append(file_path)
+
+    # Sorting the files if requested
+    if sort_by:
+        all_files.sort(key=lambda x: getattr(os.stat(x), sort_by) if include_path else x, reverse=sort_reverse)
+
+    return all_files
+
+    # Sorting options
+    if sort_by == 'name':
+        all_files.sort(key=lambda x: x.lower(), reverse=sort_reverse)  # Sort alphabetically (case insensitive)
+    elif sort_by == 'size':
+        all_files.sort(key=lambda x: os.path.getsize(x), reverse=sort_reverse)  # Sort by file size
+    elif sort_by == 'created':
+        all_files.sort(key=lambda x: os.path.getctime(x), reverse=sort_reverse)  # Sort by creation time
+    elif sort_by == 'modified':
+        all_files.sort(key=lambda x: os.path.getmtime(x), reverse=sort_reverse)  # Sort by last modified time
+
+    return all_files
+
+
+def allfiles_old(folder):
     return os.listdir(folder)
 
 #----------------------------------count-------------------------------------
@@ -198,7 +187,7 @@ def countline(file, decode='utf-8'):
 
 #-------------------------------sort_files-------------------------
 
-def sort_files(file_list ,reverse=False):
+def sort_files(file_list, reverse=False):
     flist = []
     for file in file_list:
         flist.append(file)

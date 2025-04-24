@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
 import platform
+import os
 
 with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
@@ -13,33 +14,29 @@ common_dependencies = [
     "natsort",
     "psutil",
     "Pillow",
-    "blend-modes",
     "opencv-python",
     "libscrc",
-    "PyAudio",
-    "python-vlc",
-    "ffmpeg-python",
-    "yt-dlp",
-    "youtube_dl",
-    "pafy",
-    "pafy2",
     "tqdm",
     "qrcode",
     "python-barcode",
     "pydub",
     "pyzbar",
-    "mcstatus",
-    "mcrcon",
     "paho-mqtt",
     "requests",
     "pymata-aio",
-    "six",
-    "key-generator",
     "PyQt5",
-    "gTTS",
     "py-cpuinfo",
-    "GPUtil",
-    "playsound"
+    "GPUtil"
+]
+
+deprecated = [
+    "playsound",
+    "gTTS",
+    "mcstatus",
+    "mcrcon",
+    "pafy",
+    "python-vlc",
+
 ]
 
 # Windows-specific dependencies
@@ -48,31 +45,15 @@ windows_dependencies = [
     "comtypes",
 ]
 
-# List of files to exclude based on the operating system
-exclude_files_windows = [
-    "src/damp11113/pywindows.py",
-]
-
 # Add platform-specific dependencies
 if platform.system() == 'Windows':
-    install_requires = common_dependencies + windows_dependencies
-    dependency_links = [
-        'git+https://github.com/damp11113/pafy2.git#egg=pafy2'
-    ]
+    install_requires = common_dependencies + windows_dependencies + deprecated
 else:
-    install_requires = common_dependencies
-    dependency_links = [
-        'git+https://github.com/damp11113/pafy2.git#egg=pafy2'
-    ]
-
-    # Exclude files for non-Windows platforms
-    package_data = {
-        '': exclude_files_windows,
-    }
+    install_requires = common_dependencies + deprecated
 
 setup(
     name='damp11113',
-    version='2024.12.23.18.0.0',
+    version='2025.1.22',
     license='MIT',
     author='damp11113',
     author_email='damp51252@gmail.com',
@@ -83,6 +64,4 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=install_requires,
-    dependency_links=dependency_links,
-    package_data=package_data if 'package_data' in locals() else {},
 )

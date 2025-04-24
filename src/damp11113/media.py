@@ -26,8 +26,6 @@ SOFTWARE.
 """
 
 import libscrc
-import vlc
-import pafy, pafy2
 import cv2
 import tqdm
 import numpy as np
@@ -36,224 +34,14 @@ import barcode
 from barcode.writer import ImageWriter
 import os
 from PIL import Image
-import yt_dlp as youtube_dl2
 from pydub import AudioSegment
 from pyzbar import pyzbar
 from scipy.signal import resample
 
 from .utils import get_size_unit
 from .randoms import rannum
-from .file import sizefolder3, removefile, allfiles, sort_files
+from .file import sizefolder3, allfiles, sort_files
 from .codec import DFPWMEncoder, DFPWMDecoder, DFPWMEncoder2, DFPWMEncoderStereo, DFPWMDecoderStereo
-
-
-class vlc_player:
-    def __init__(self):
-        self.instance = vlc.Instance()
-        self.player = self.instance.media_player_new()
-
-    def load(self, file_path):
-        self.media = self.instance.media_new(file_path)
-        self.player.set_media(self.media)
-        return f"Loading {file_path}"
-
-    def play(self):
-        self.player.play()
-        return f"Playing {self.media.get_mrl()}"
-
-    def pause(self):
-        self.player.pause()
-        return f"Pausing {self.media.get_mrl()}"
-
-    def stop(self):
-        self.player.stop()
-        return f"Stopping {self.media.get_mrl()}"
-
-    def get_position(self):
-        return self.player.get_position()
-
-    def set_position(self, position):
-        self.player.set_position(position)
-        return f"Setting position to {position}"
-
-    def get_state(self):
-        return self.player.get_state()
-
-    def get_length(self):
-        return self.media.get_duration()
-
-    def get_time(self):
-        return self.player.get_time()
-
-    def set_time(self, time):
-        self.player.set_time(time)
-        return f"Setting time to {time}"
-
-    def get_rate(self):
-        return self.player.get_rate()
-
-    def set_rate(self, rate):
-        self.player.set_rate(rate)
-        return f"Setting rate to {rate}"
-
-    def get_volume(self):
-        return self.player.audio_get_volume()
-
-    def set_volume(self, volume):
-        self.player.audio_set_volume(volume)
-        return f"Setting volume to {volume}"
-
-    def get_mute(self):
-        return self.player.audio_get_mute()
-
-    def set_mute(self, mute):
-        self.player.audio_set_mute(mute)
-        return f"Setting mute to {mute}"
-
-    def get_chapter(self):
-        return self.player.get_chapter()
-
-    def set_chapter(self, chapter):
-        self.player.set_chapter(chapter)
-        return f"Setting chapter to {chapter}"
-
-    def get_chapter_count(self):
-        return self.media.get_chapter_count()
-
-    def get_title(self):
-        return self.player.get_title()
-
-    def set_title(self, title):
-        self.player.set_title(title)
-        return f"Setting title to {title}"
-
-    def get_title_count(self):
-        return self.media.get_title_count()
-
-    def get_video_track(self):
-        return self.player.video_get_track()
-
-    def set_video_track(self, track):
-        self.player.video_set_track(track)
-        return f"Setting video track to {track}"
-
-    def get_video_track_count(self):
-        return self.media.get_video_track_count()
-
-    def get_audio_track(self):
-        return self.player.audio_get_track()
-
-    def set_audio_track(self, track):
-        self.player.audio_set_track(track)
-        return f"Setting audio track to {track}"
-
-    def get_audio_track_count(self):
-        return self.media.get_audio_track_count()
-
-    def get_spu_track(self):
-        return self.player.video_get_spu()
-
-    def set_spu_track(self, track):
-        self.player.video_set_spu(track)
-        return f"Setting subtitle track to {track}"
-
-    def get_spu_track_count(self):
-        return self.media.get_spu_track_count()
-
-    def get_chapter_description(self, chapter):
-        return self.media.get_chapter_description(chapter)
-
-    def toggle_fullscreen(self):
-        self.player.toggle_fullscreen()
-        return f"Toggling fullscreen"
-
-    def get_fullscreen(self):
-        return self.player.get_fullscreen()
-
-    def get_video_resolution(self):
-        return (self.player.video_get_width(), self.player.video_get_height())
-
-    def get_fps(self):
-        return self.player.get_fps()
-
-class youtube_stream:
-    def __init__(self, url):
-        self.stream = pafy.new(url)
-
-    def video_stream(self, resolution=None):
-        if resolution is None:
-            best = self.stream.getbestvideo()
-        else:
-            best = self.stream.getbestvideo().resolution(resolution)
-        return best.url
-
-    def audio_stream(self):
-        best = self.stream.getbestaudio()
-        return best.url
-
-    def best_stream(self, resolution=None):
-        if resolution is None:
-            best = self.stream.getbest()
-        else:
-            best = self.stream.getbest().resolution(resolution)
-        return best.url
-
-    def get_title(self):
-        return self.stream.title
-
-    def get_dec(self):
-        return self.stream.description
-
-    def get_length(self):
-        return self.stream.length
-
-    def get_thumbnail(self):
-        return self.stream.thumb
-
-    def get_author(self):
-        return self.stream.author
-
-    def get_likes(self):
-        return self.stream.likes
-
-    def get_dislikes(self):
-        return self.stream.dislikes
-
-    def get_views(self):
-        return self.stream.viewcount
-
-class youtube_stream2:
-    def __init__(self, url):
-        self.stream = pafy2.new(url)
-        self.ydl = youtube_dl2.YoutubeDL()
-        self.url = url
-
-    def video_stream(self, resolution=None):
-        if resolution is None:
-            best = self.stream.getbestvideo()
-        else:
-            best = self.stream.getbestvideo().resolution(resolution)
-        return best.url
-
-    def audio_stream(self):
-        best = self.stream.getbestaudio()
-        return best.url
-
-    def best_stream(self, preftype="mp4"):
-        best = self.stream.getbest(preftype=preftype)
-        return best.url
-
-    def get_streams(self):
-        return self.ydl.extract_info(self.url, download=False)['formats']
-
-    def get_id(self):
-        return self.ydl.extract_info(self.url, download=False)['id']
-
-    def get_title(self):
-        return self.ydl.extract_info(self.url, download=False)['title']
-
-    def get_dec(self):
-        return self.ydl.extract_info(self.url, download=False)['description']
 
 def clip2frames(clip_path, frame_path, currentframe=1, filetype='png'):
     try:
@@ -381,9 +169,8 @@ def qrcodegen(text, showimg=False, save_path='./', filename='qrcode', filetype='
 def barcodegen(number, type='ean13', showimg=False, save_path='./', filename='barcode', filetype='png', writer=ImageWriter()):
     barcode_img = barcode.get(type, number, writer=writer)
     if showimg:
-        img = Image.open(barcode_img.save(f'{save_path}{filename}.{filetype}'))
+        img = Image.open(barcode_img.render())
         img.show()
-        removefile(barcode_img.save(f'{save_path}{filename}.{filetype}'))
     else:
         barcode_img.save(f'{save_path}{filename}.{filetype}')
 
@@ -525,29 +312,6 @@ def stretch(snd_array, factor, window_size, h):
         i2 = int(i/factor)
         result[i2: i2 + window_size] += hanning_window*a2_rephased.real
     return result.astype('int16')
-
-def speedx(sound_array, factor):
-    """ Multiplies the sound's speed by some `factor` """
-    indices = np.round( np.arange(0, len(sound_array), factor) )
-    indices = indices[indices < len(sound_array)].astype(int)
-    return sound_array[ indices.astype(int) ]
-
-def pitchshift(snd_array, n, window_size=2**13, h=2**11):
-    """ Changes the pitch of a sound by ``n`` semitones. """
-    factor = 2**(1.0 * n / 12.0)
-    stretched = stretch(snd_array, 1.0/factor, window_size, h)
-    return speedx(stretched[window_size:], factor)
-
-def speed_change(sound, speed=1.0):
-    # Manually override the frame_rate. This tells the computer how many
-    # samples to play per second
-    sound_with_altered_frame_rate = sound._spawn(sound.raw_data, overrides={
-         "frame_rate": int(sound.frame_rate * speed)
-      })
-     # convert the sound with altered frame rate to a standard frame rate
-     # so that regular playback programs will work right. They often only
-     # know how to play audio at standard frame rate (like 44.1k)
-    return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
 # --------------------------------------------------------
 

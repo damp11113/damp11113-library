@@ -80,3 +80,70 @@ def ALU(in1=False, in2=False, in3=False, in4=False, in5=False, in6=False, in7=Fa
     OAND2 = AND(OAND1, ONOT3)
     OAND3 = AND(OAND2, ONOT4)
     return (a4b1, a4b2, a4b3, a4b4, a4b5, a4b1, OAND3)
+
+def ZERO_FLAG(*bits):
+    out = True
+    for bit in bits:
+        out = AND(out, NOT(bit))
+    return out
+
+def OVERFLOW(carry_in, carry_out):
+    return XOR(carry_in, carry_out)
+
+def AND_4BIT(a1, a2, a3, a4, b1, b2, b3, b4):
+    return (AND(a1, b1), AND(a2, b2), AND(a3, b3), AND(a4, b4))
+
+def OR_4BIT(a1, a2, a3, a4, b1, b2, b3, b4):
+    return (OR(a1, b1), OR(a2, b2), OR(a3, b3), OR(a4, b4))
+
+def SLT(a1, a2, a3, a4, b1, b2, b3, b4):
+    # subtract a - b
+    _, r1, r2, r3, r4, _, _ = ALU(a1, a2, a3, a4, b1, b2, b3, b4, True)  # subtraction
+    return r1  # MSB as sign
+
+def SHIFT_LEFT_4BIT(b1, b2, b3, b4):
+    return (b2, b3, b4, False)
+
+def SHIFT_RIGHT_4BIT(b1, b2, b3, b4):
+    return (False, b1, b2, b3)
+
+def ALU_CONTROL(opcode, a1, a2, a3, a4, b1, b2, b3, b4):
+    if opcode == 'ADD':
+        return ADDER_4BIT(a1, a2, a3, a4, b1, b2, b3, b4, False)
+    elif opcode == 'SUB':
+        return ADDER_4BIT(a1, a2, a3, a4, b1, b2, b3, b4, True)
+    elif opcode == 'AND':
+        return AND_4BIT(a1, a2, a3, a4, b1, b2, b3, b4)
+    elif opcode == 'OR':
+        return OR_4BIT(a1, a2, a3, a4, b1, b2, b3, b4)
+    elif opcode == 'SLT':
+        return (SLT(a1, a2, a3, a4, b1, b2, b3, b4), False, False, False)
+    else:
+        return (False, False, False, False)
+
+def SR_LATCH(S, R, prev_Q=False, prev_notQ=True):
+    Q = NAND(S, prev_notQ)
+    notQ = NAND(R, Q)
+    return Q, notQ
+
+def D_LATCH(D, CLK, prev_Q=False, prev_notQ=True):
+    S = AND(D, CLK)
+    R = AND(NOT(D), CLK)
+    return SR_LATCH(S, R, prev_Q, prev_notQ)
+
+def T_FLIP_FLOP(T, CLK, prev_Q=False):
+    if AND(T, CLK):
+        return NOT(prev_Q)
+    else:
+        return prev_Q
+
+def JK_FLIP_FLOP(J, K, CLK, prev_Q=False):
+    if CLK:
+        if J and not K:
+            return True
+        elif not J and K:
+            return False
+        elif J and K:
+            return NOT(prev_Q)
+    return prev_Q
+

@@ -28,112 +28,12 @@ import operator
 import time
 import sys
 from functools import reduce
-from time import sleep
-from datetime import datetime
-from threading import Thread
-from .randoms import rannum
-from .file import removefile
 from inspect import getmembers, isfunction
-from gtts import gTTS
-from playsound import playsound
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from shutil import get_terminal_size
 from decimal import Decimal, getcontext
-
-def grade(score: int):
-    if 0 >= score >= 100:
-        return '0 - 100 only'
-
-    if score == 100:
-        return "Perfect"
-    elif score >= 95:
-        return "A+"
-    elif score >= 90:
-        return "A"
-    elif score >= 85:
-        return "B+"
-    elif score >= 80:
-        return "B"
-    elif score >= 75:
-        return "C+"
-    elif score >= 70:
-        return "C"
-    elif score >= 65:
-        return "D+"
-    elif score >= 60:
-        return "D"
-    elif score >= 55:
-        return "E+"
-    elif score >= 50:
-        return "E"
-    else:
-        return "F"
-
-def clock(display="%z %A %d %B %Y - %H:%M:%S"):
-    x = datetime.now()
-    clock = x.strftime(display) #"%z %A %d %B %Y  %p %H:%M:%S"
-    return clock
-
-class BooleanArgs:
-    def __init__(self, args):
-        self._args = {}
-        self.all = False
-
-        for arg in args:
-            arg = arg.lower()
-
-            if arg == "-" or arg == "!*":
-                self.all = False
-                self._args = {}
-
-            if arg == "+" or arg == "*":
-                self.all = True
-
-            if arg.startswith("!"):
-                self._args[arg.strip("!")] = False
-
-            else:
-                self._args[arg] = True
-
-    def get(self, item):
-        return self.all or self._args.get(item, False)
-
-    def __getattr__(self, item):
-        return self.get(item)
-
-def typing(text, speed=0.3):
-    for character in text:
-        sys.stdout.write(character)
-        sys.stdout.flush()
-        time.sleep(speed)
-
-def timestamp(timezone=None):
-    return datetime.timestamp(datetime.now(timezone))
-
-def full_cpu(min=100, max=10000, speed=0.000000000000000001):
-    _range = rannum(min, max)
-    class thread_class(Thread):
-        def __init__(self, name, _range):
-            Thread.__init__(self)
-            self.name = name
-            self.range = _range
-        def run(self):
-            for i in range(self.range):
-                print(f'{self.name} is running')
-    for i in range(_range):
-        name = f'Thread {i}/{_range}'
-        thread = thread_class(name, _range)
-        thread.start()
-        sleep(speed)
-
-def tts(text, lang, play=True, name='tts.mp3', slow=False):
-    tts = gTTS(text=text, lang=lang, slow=slow)
-    tts.save(name)
-    if play:
-        playsound(name)
-        removefile(name)
 
 textt = """Unhandled exception has occurred in your application.If you click\nContinue,the application will ignore this error and attempt to continue.\nIf you click Quit,the application will close immediately.\n"""
 
