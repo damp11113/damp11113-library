@@ -48,7 +48,7 @@ else:
 
 setup(
     name='damp11113',
-    version='2025.2.22',
+    version='2025.2.22-1',
     license='MIT',
     author='damp11113',
     author_email='damp51252@gmail.com',
