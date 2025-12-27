@@ -33,6 +33,10 @@ import bitarray
 import random
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import cv2
+import matplotlib
+import numpy as np
+from sklearn.cluster import KMeans
 
 # multiplex4 (m4) format
 def m4write(filename, sample_rate, data_format, data_streams):
@@ -436,7 +440,6 @@ instream.close()
 """
 
 #------------------------------------------------------------------------------------------------------
-
 
 class Packet:
     __slots__ = ['stream_id', 'sequence_number', 'compressed_payload', 'metadata', 'hamming_code']
@@ -1099,6 +1102,8 @@ class RCFGenerator:
                 raise ValueError(f"Feed ID {feed.content['id']} already exists.")
         self.data["feeds"].append(feed.content)
 
+#------------------------------------------------------------------------------------------------------
+
 def SRTParser(file_path, removeln=True):
     def parse_srt_time(time_str):
         """Convert SRT time format to seconds."""
@@ -1156,3 +1161,168 @@ def SRTParser(file_path, removeln=True):
 
     return subtitles
 
+def load_colormap_sdrpp(json_data):
+    try:
+        # Extract the name and the list of hex colors from the JSON data.
+        name = json_data.get("name", "custom_colormap")
+        hex_colors = json_data.get("map", [])
+
+        if not hex_colors:
+            raise ValueError("The 'map' key in the JSON data is empty or missing.")
+
+        # Convert the list of hex colors to RGB values (0-1 range).
+        rgb_colors = [matplotlib.colors.hex2color(hex_val) for hex_val in hex_colors]
+
+        # Create the colormap using the matplotlib.colors.LinearSegmentedColormap.
+        # This function interpolates between the provided colors.
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list(name, rgb_colors, N=256)
+
+        return cmap
+    except (ValueError, KeyError) as e:
+        print(f"Error creating colormap: {e}")
+        return None
+
+class SixelEncoder:
+    """
+    A Sixel encoder for converting OpenCV images to Sixel format
+    for display in compatible terminals.
+    """
+
+    def __init__(self):
+        self.palette = []
+        self.width = 0
+        self.height = 0
+
+    def quantize_colors(self, img: np.ndarray, n_colors: int = 256):
+        """
+        Reduce the number of colors in the image using KMeans clustering.
+
+        Args:
+            img: Input image (H, W, 3) in RGB format
+            n_colors: Maximum number of colors to use
+
+        Returns:
+            Quantized image and color palette
+        """
+        # Reshape image to be a list of pixels
+        pixels = img.reshape((-1, 3))
+
+        # Use KMeans to find the most representative colors
+        kmeans = KMeans(n_clusters=min(n_colors, len(np.unique(pixels, axis=0))),
+                        random_state=42, n_init=10)
+        kmeans.fit(pixels)
+
+        # Get the color palette
+        palette = kmeans.cluster_centers_.astype(np.uint8)
+
+        # Map each pixel to its nearest color
+        labels = kmeans.predict(pixels)
+        quantized = palette[labels].reshape(img.shape)
+
+        return quantized, palette
+
+    def build_palette(self, palette: np.ndarray) -> str:
+        """
+        Build Sixel color palette definition string.
+
+        Args:
+            palette: Color palette array
+
+        Returns:
+            Sixel palette definition string
+        """
+        palette_str = ""
+        for i, color in enumerate(palette):
+            r, g, b = color
+            # Convert to 0-100 range for Sixel
+            r = int(r * 100 / 255)
+            g = int(g * 100 / 255)
+            b = int(b * 100 / 255)
+            palette_str += f"#{i};2;{r};{g};{b}"
+        return palette_str
+
+    def encode_sixel_row(self, row_data: np.ndarray, palette: np.ndarray) -> str:
+        """
+        Encode a single 6-pixel high row as Sixel data.
+
+        Args:
+            row_data: Image data for this row (6, width, 3)
+            palette: Color palette
+
+        Returns:
+            Sixel encoded string for this row
+        """
+        output = ""
+        width = row_data.shape[1]
+
+        # Create color index map
+        color_map = {}
+        for y in range(min(6, row_data.shape[0])):
+            for x in range(width):
+                pixel = tuple(row_data[y, x])
+                # Find closest color in palette
+                if pixel not in color_map:
+                    distances = np.sum((palette - row_data[y, x]) ** 2, axis=1)
+                    color_map[pixel] = np.argmin(distances)
+
+        # Group consecutive pixels of the same color
+        for color_idx in range(len(palette)):
+            output += f"#{color_idx}"
+
+            for x in range(width):
+                sixel_char = 0
+                for y in range(min(6, row_data.shape[0])):
+                    pixel = tuple(row_data[y, x])
+                    if color_map[pixel] == color_idx:
+                        sixel_char |= (1 << y)
+
+                if sixel_char > 0:
+                    output += chr(63 + sixel_char)
+                else:
+                    output += "?"
+
+            output += "$"  # Carriage return
+
+        output += "-"  # Line feed
+        return output
+
+    def encode(self, img: np.ndarray, max_colors: int = 256) -> str:
+        """
+        Encode an OpenCV image to Sixel format.
+
+        Args:
+            img: OpenCV image (BGR format)
+            max_colors: Maximum number of colors to use (1-256)
+            terminal_width: Maximum width in terminal characters
+            terminal_height: Maximum height in terminal lines
+
+        Returns:
+            Sixel encoded string
+        """
+        # Convert BGR to RGB
+        if len(img.shape) == 3 and img.shape[2] == 3:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        else:
+            img_rgb = img
+
+        # Quantize colors
+        max_colors = max(1, min(256, max_colors))
+        img_quantized, palette = self.quantize_colors(img_rgb, max_colors)
+
+        # Start Sixel sequence
+        output = "\033Pq"  # Device Control String
+
+        # Add palette definition
+        output += self.build_palette(palette)
+
+        # Encode image data row by row (6 pixels per row)
+        height = img_quantized.shape[0]
+        for y in range(0, height, 6):
+            row_end = min(y + 6, height)
+            row_data = img_quantized[y:row_end]
+            output += self.encode_sixel_row(row_data, palette)
+
+        # End Sixel sequence
+        output += "\033\\"
+
+        return output

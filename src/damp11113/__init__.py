@@ -66,6 +66,7 @@ if os.environ["damp11113_load_all_module"] == "YES":
 
 if os.environ["damp11113_check_update"] == "YES":
     import threading
+    import time
     def check_for_update():
         from pygments import console
         import requests
@@ -97,7 +98,7 @@ if os.environ["damp11113_check_update"] == "YES":
                 except requests.exceptions.RequestException as e:
                     if attempt < retries - 1:
                         print(console.colorize("yellow", f"Retrying... ({attempt + 1}/{retries})"))
-                        sleep(2)  # Wait before retrying
+                        time.sleep(2)  # Wait before retrying
                     else:
                         print(console.colorize("red", f"Failed to check for update: {e}"))
         except Exception as e:

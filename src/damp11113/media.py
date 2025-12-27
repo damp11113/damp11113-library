@@ -27,7 +27,6 @@ SOFTWARE.
 
 import libscrc
 import cv2
-import tqdm
 import numpy as np
 import qrcode
 import barcode
@@ -37,38 +36,45 @@ from PIL import Image
 from pydub import AudioSegment
 from pyzbar import pyzbar
 from scipy.signal import resample
+import pyaudio
+import wave
+import threading
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+from enum import Enum
 
+from .processbar import LoadingProgress, Steps
 from .utils import get_size_unit
 from .randoms import rannum
 from .file import sizefolder3, allfiles, sort_files
 from .codec import DFPWMEncoder, DFPWMDecoder, DFPWMEncoder2, DFPWMEncoderStereo, DFPWMDecoderStereo
 
 def clip2frames(clip_path, frame_path, currentframe=1, filetype='png'):
+    progress = LoadingProgress(total=0, unit='frame')
+    progress.desc = f'set output to {frame_path}'
     try:
         clip = cv2.VideoCapture(clip_path)
         length = int(clip.get(cv2.CAP_PROP_FRAME_COUNT))
-        progress = tqdm.tqdm(total=length, unit='frame')
-        progress.set_description(f'set output to {frame_path}')
+        progress.total = length
         if not os.path.exists(frame_path):
             os.mkdir(frame_path)
-            progress.set_description(f'create output folder {frame_path}')
-        progress.set_description(f'converting... ')
+            progress.desc = f'create output folder {frame_path}'
+        progress.desc = 'converting... '
         while True:
             size = get_size_unit(sizefolder3(frame_path))
             ret, frame = clip.read()
             PILframe = CV22PIL(frame)
             PILframe.save(f'{frame_path}/{str(currentframe)}' + f'.{filetype}')
-            progress.set_description(f'converting... | filetype .{filetype} | converted {currentframe}/{length} | file {currentframe}.{filetype} | used {size}')
+            progress.desc = f'converting... | filetype .{filetype} | converted {currentframe}/{length} | file {currentframe}.{filetype} | used {size}'
             currentframe += 1
             progress.update(1)
             if currentframe == length:
-                progress.set_description(f'converted {currentframe} frame | used {size} MB')
-                progress.close()
+                progress.desc = f'converted {currentframe} frame | used {size} MB'
+                progress.stop()
                 break
     except Exception as e:
-        progress = tqdm.tqdm(total=0)
-        progress.set_description(f'error: {e}')
-        progress.close()
+        progress.fail = f'error: {e}'
+        progress.stopfail()
 
 def im2ascii(image, width=None, height=None, new_width=None, chars=None, pixelss=25):
     try:
@@ -175,26 +181,27 @@ def barcodegen(number, type='ean13', showimg=False, save_path='./', filename='ba
         barcode_img.save(f'{save_path}{filename}.{filetype}')
 
 def imseq2clip(imseq, path, videoname='video.mp4', fps=30):
-    progress = tqdm.tqdm()
-    progress.set_description(f'please wait...')
+    progress = LoadingProgress(total=0, unit='frame')
+    progress.desc = f'please wait...'
     simseq = sort_files(allfiles(imseq), reverse=False)
     img = []
     for i in simseq:
         i = path+i
         img.append(i)
-    progress.set_description(f'converting...')
+    progress.desc = f'converting...'
     progress.total = len(img)
     progress.unit = 'frame'
     cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video = cv2.VideoWriter(path+videoname, cv2_fourcc, fps)
     for i in range(len(img)):
-        progress.set_description(f'converting... | frame {i}/{len(img)}')
+        progress.desc = f'converting... | frame {i}/{len(img)}'
         frame = cv2.imread(img[i])
         video.write(frame)
         progress.update(1)
 
     video.release()
-    progress.set_description(f'converted')
+    progress.end = f'converted'
+    progress.stop()
 
 def readbqrcode(image):
     image = Image.open(image)
@@ -456,3 +463,860 @@ class QuickDFPWMDec:
         resampled_data = resample(pcm_array, num_samples)
 
         return resampled_data.astype(np.int16).tobytes()
+
+class VoiceState(Enum):
+    PLAYING = "playing"
+    PAUSED = "paused"
+    STOPPED = "stopped"
+
+
+@dataclass
+class Voice:
+    id: int
+    sample_data: np.ndarray
+    sample_rate: int
+    volume: float = 1.0
+    pitch: float = 1.0
+    position: int = 0
+    state: VoiceState = VoiceState.STOPPED
+    loop: bool = False
+
+
+class AudioManager:
+    def __init__(self, sample_rate=44100, chunk_size=1024, channels=1):
+        self.sample_rate = sample_rate
+        self.chunk_size = chunk_size
+        self.channels = channels
+        self.voices: Dict[int, Voice] = {}
+        self.next_voice_id = 0
+        self.is_running = False
+        self.output_buffer = np.zeros(chunk_size, dtype=np.float32)
+
+        # PyAudio setup
+        self.pa = pyaudio.PyAudio()
+        self.stream = None
+
+        # Threading
+        self.lock = threading.Lock()
+        self.audio_thread = None
+
+        # Recording for WAV output
+        self.recording = False
+        self.recorded_data = []
+
+    def load_sample_from_file(self, filename: str) -> tuple:
+        """Load audio sample from WAV file"""
+        try:
+            with wave.open(filename, 'rb') as wf:
+                frames = wf.readframes(wf.getnframes())
+                sample_rate = wf.getframerate()
+
+                # Convert to numpy array
+                if wf.getsampwidth() == 1:
+                    dtype = np.int8
+                elif wf.getsampwidth() == 2:
+                    dtype = np.int16
+                elif wf.getsampwidth() == 4:
+                    dtype = np.int32
+                else:
+                    raise ValueError("Unsupported sample width")
+
+                audio_data = np.frombuffer(frames, dtype=dtype)
+
+                # Convert to float32 and normalize
+                if dtype == np.int8:
+                    audio_data = audio_data.astype(np.float32) / 128.0
+                elif dtype == np.int16:
+                    audio_data = audio_data.astype(np.float32) / 32768.0
+                elif dtype == np.int32:
+                    audio_data = audio_data.astype(np.float32) / 2147483648.0
+
+                return audio_data, sample_rate
+        except Exception as e:
+            print(f"Error loading audio file: {e}")
+            return None, None
+    def add_voice(self, sample_data: np.ndarray, sample_rate: int = None,
+                  volume: float = 1.0, pitch: float = 1.0, loop: bool = False) -> int:
+        """Add a new voice to the manager"""
+        if sample_rate is None:
+            sample_rate = self.sample_rate
+
+        voice_id = self.next_voice_id
+        self.next_voice_id += 1
+
+        with self.lock:
+            self.voices[voice_id] = Voice(
+                id=voice_id,
+                sample_data=sample_data,
+                sample_rate=sample_rate,
+                volume=volume,
+                pitch=pitch,
+                loop=loop
+            )
+
+        return voice_id
+
+    def play_voice(self, voice_id: int):
+        """Start playing a voice"""
+        with self.lock:
+            if voice_id in self.voices:
+                self.voices[voice_id].state = VoiceState.PLAYING
+                self.voices[voice_id].position = 0
+
+    def stop_voice(self, voice_id: int, destroy: bool = False):
+        """Stop a voice"""
+        with self.lock:
+            if voice_id in self.voices:
+                if destroy:
+                    del self.voices[voice_id]
+                else:
+                    self.voices[voice_id].state = VoiceState.STOPPED
+                    self.voices[voice_id].position = 0
+
+    def pause_voice(self, voice_id: int):
+        """Pause a voice"""
+        with self.lock:
+            if voice_id in self.voices:
+                self.voices[voice_id].state = VoiceState.PAUSED
+
+    def resume_voice(self, voice_id: int):
+        """Resume a paused voice"""
+        with self.lock:
+            if voice_id in self.voices:
+                if self.voices[voice_id].state == VoiceState.PAUSED:
+                    self.voices[voice_id].state = VoiceState.PLAYING
+
+    def set_voice_volume(self, voice_id: int, volume: float):
+        """Set voice volume (0.0 to 1.0+)"""
+        with self.lock:
+            if voice_id in self.voices:
+                self.voices[voice_id].volume = max(0.0, volume)
+
+    def set_voice_pitch(self, voice_id: int, pitch: float):
+        """Set voice pitch (1.0 = normal, 2.0 = double speed/pitch)"""
+        with self.lock:
+            if voice_id in self.voices:
+                self.voices[voice_id].pitch = max(0.1, pitch)
+
+    def remove_voice(self, voice_id: int):
+        """Remove a voice from the manager"""
+        with self.lock:
+            if voice_id in self.voices:
+                del self.voices[voice_id]
+
+    def set_loop(self, voice_id: int, loop: bool):
+        """Set looping for a voice"""
+        with self.lock:
+            if voice_id in self.voices:
+                self.voices[voice_id].loop = loop
+
+    def clear_all_voices(self):
+        """Clear all voices from the manager"""
+        with self.lock:
+            self.voices.clear()
+            self.next_voice_id = 0
+    def _resample_audio(self, audio_data: np.ndarray, original_rate: int, target_rate: int) -> np.ndarray:
+        """Simple resampling using linear interpolation"""
+        if original_rate == target_rate:
+            return audio_data
+
+        ratio = target_rate / original_rate
+        new_length = int(len(audio_data) * ratio)
+
+        old_indices = np.linspace(0, len(audio_data) - 1, new_length)
+        new_audio = np.interp(old_indices, np.arange(len(audio_data)), audio_data)
+
+        return new_audio.astype(np.float32)
+
+    def _process_voice(self, voice: Voice, chunk_size: int) -> np.ndarray:
+        """Process a single voice and return audio chunk"""
+        if voice.state != VoiceState.PLAYING:
+            return np.zeros(chunk_size, dtype=np.float32)
+
+        # Calculate effective sample rate with pitch
+        effective_rate = voice.sample_rate * voice.pitch
+
+        # Calculate how many samples we need from the original
+        samples_needed = int(chunk_size * effective_rate / self.sample_rate)
+
+        # Check if we have enough samples
+        remaining_samples = len(voice.sample_data) - voice.position
+
+        if remaining_samples <= 0:
+            if voice.loop:
+                voice.position = 0
+                remaining_samples = len(voice.sample_data)
+            else:
+                voice.state = VoiceState.STOPPED
+                return np.zeros(chunk_size, dtype=np.float32)
+
+        # Get the audio chunk
+        end_pos = min(voice.position + samples_needed, len(voice.sample_data))
+        audio_chunk = voice.sample_data[voice.position:end_pos]
+
+        # Handle looping if we need more samples
+        if len(audio_chunk) < samples_needed and voice.loop:
+            remaining_needed = samples_needed - len(audio_chunk)
+            loop_chunk = voice.sample_data[:remaining_needed]
+            audio_chunk = np.concatenate([audio_chunk, loop_chunk])
+            voice.position = remaining_needed
+        else:
+            voice.position = end_pos
+
+        # Resample to target sample rate if needed
+        if effective_rate != self.sample_rate:
+            audio_chunk = self._resample_audio(audio_chunk, int(effective_rate), self.sample_rate)
+
+        # Ensure we have the right chunk size
+        if len(audio_chunk) > chunk_size:
+            audio_chunk = audio_chunk[:chunk_size]
+        elif len(audio_chunk) < chunk_size:
+            padded = np.zeros(chunk_size, dtype=np.float32)
+            padded[:len(audio_chunk)] = audio_chunk
+            audio_chunk = padded
+
+        # Apply volume
+        audio_chunk *= voice.volume
+
+        return audio_chunk
+
+    def _mix_audio(self) -> np.ndarray:
+        """Mix all active voices together"""
+        mixed = np.zeros(self.chunk_size, dtype=np.float32)
+
+        with self.lock:
+            for voice in self.voices.values():
+                voice_audio = self._process_voice(voice, self.chunk_size)
+                mixed += voice_audio
+
+        # Simple limiting to prevent clipping
+        mixed = np.clip(mixed, -1.0, 1.0)
+
+        return mixed
+
+    def _audio_callback(self, in_data, frame_count, time_info, status):
+        """PyAudio callback function"""
+        audio_data = self._mix_audio()
+
+        # Record if needed
+        if self.recording:
+            self.recorded_data.append(audio_data.copy())
+
+        # Convert to bytes
+        audio_bytes = (audio_data * 32767).astype(np.int16).tobytes()
+
+        return (audio_bytes, pyaudio.paContinue)
+
+    def start_playback(self):
+        """Start real-time audio playback"""
+        if self.is_running:
+            return
+
+        self.stream = self.pa.open(
+            format=pyaudio.paInt16,
+            channels=self.channels,
+            rate=self.sample_rate,
+            output=True,
+            frames_per_buffer=self.chunk_size,
+            stream_callback=self._audio_callback
+        )
+
+        self.stream.start_stream()
+        self.is_running = True
+
+    def stop_playback(self):
+        """Stop real-time audio playback"""
+        if not self.is_running:
+            return
+
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+            self.stream = None
+
+        self.is_running = False
+
+    def get_voice_info(self, voice_id: int) -> dict:
+        """Get information about a voice"""
+        with self.lock:
+            if voice_id in self.voices:
+                voice = self.voices[voice_id]
+                return {
+                    'id': voice.id,
+                    'state': voice.state.value,
+                    'volume': voice.volume,
+                    'pitch': voice.pitch,
+                    'position': voice.position,
+                    'length': len(voice.sample_data),
+                    'loop': voice.loop
+                }
+        return None
+
+    def list_voices(self) -> List[int]:
+        """Get list of all voice IDs"""
+        with self.lock:
+            return list(self.voices.keys())
+
+    def cleanup(self):
+        """Clean up resources"""
+        self.stop_playback()
+        if self.pa:
+            self.pa.terminate()
+
+class ChannelState(Enum):
+    IDLE = "idle"
+    PLAYING = "playing"
+    PAUSED = "paused"
+    STOPPED = "stopped"
+
+@dataclass
+class AudioSample:
+    """Represents an audio sample that can be loaded into a channel"""
+    data: np.ndarray
+    sample_rate: int
+    name: str = ""
+
+
+class AudioChannel:
+    """Represents a single audio channel with its own playback state"""
+
+    def __init__(self, channel_id: int, sample_rate: int = 44100):
+        self.id = channel_id
+        self.sample_rate = sample_rate
+
+        # Playback state
+        self.state = ChannelState.IDLE
+        self.position = 0
+        self.loop = False
+
+        # Audio properties
+        self.volume = 1.0
+        self.pitch = 1.0
+        self.pan = 0.0  # -1.0 (left) to 1.0 (right), 0.0 center
+        self.mute = False
+        self.solo = False
+
+        # Sample data
+        self.sample: Optional[AudioSample] = None
+
+        # Effects
+        self.reverb = 0.0
+        self.low_pass_cutoff = None  # Hz, None means no filter
+        self.high_pass_cutoff = None  # Hz, None means no filter
+
+    def load_sample(self, sample: AudioSample):
+        """Load an audio sample into this channel"""
+        self.sample = sample
+        self.position = 0
+        self.state = ChannelState.STOPPED
+
+    def clear_sample(self):
+        """Remove the current sample from this channel"""
+        self.sample = None
+        self.position = 0
+        self.state = ChannelState.IDLE
+
+    def play(self):
+        """Start playing the loaded sample"""
+        if self.sample is not None:
+            self.state = ChannelState.PLAYING
+
+    def stop(self):
+        """Stop playback and reset position"""
+        self.state = ChannelState.STOPPED
+        self.position = 0
+
+    def pause(self):
+        """Pause playback"""
+        if self.state == ChannelState.PLAYING:
+            self.state = ChannelState.PAUSED
+
+    def resume(self):
+        """Resume playback from paused state"""
+        if self.state == ChannelState.PAUSED:
+            self.state = ChannelState.PLAYING
+
+    def reset(self):
+        """Reset channel to default state"""
+        self.stop()
+        self.volume = 1.0
+        self.pitch = 1.0
+        self.pan = 0.0
+        self.mute = False
+        self.solo = False
+        self.loop = False
+        self.reverb = 0.0
+        self.low_pass_cutoff = None
+        self.high_pass_cutoff = None
+
+    def get_info(self) -> dict:
+        """Get channel information"""
+        return {
+            'id': self.id,
+            'state': self.state.value,
+            'volume': self.volume,
+            'pitch': self.pitch,
+            'pan': self.pan,
+            'mute': self.mute,
+            'solo': self.solo,
+            'loop': self.loop,
+            'position': self.position,
+            'sample_loaded': self.sample is not None,
+            'sample_name': self.sample.name if self.sample else None,
+            'sample_length': len(self.sample.data) if self.sample else 0,
+            'reverb': self.reverb,
+            'low_pass_cutoff': self.low_pass_cutoff,
+            'high_pass_cutoff': self.high_pass_cutoff
+        }
+
+
+class AudioManagerV2:
+    """Multi-channel audio manager for mixing and playback"""
+
+    def __init__(self, sample_rate=44100, chunk_size=1024, max_channels=16, audio_channels=2):
+        self.sample_rate = sample_rate
+        self.chunk_size = chunk_size
+        self.max_channels = max_channels
+        self.audio_channels = audio_channels
+
+        # Audio channels
+        self.channels: Dict[int, AudioChannel] = {}
+        self.master_volume = 1.0
+        self.master_mute = False
+
+        # PyAudio setup
+        self.pa = pyaudio.PyAudio()
+        self.stream = None
+        self.is_running = False
+
+        # Threading
+        self.lock = threading.Lock()
+
+        # Recording
+        self.recording = False
+        self.recorded_data = []
+
+        # Sample library
+        self.sample_library: Dict[str, AudioSample] = {}
+
+    def create_channel(self, channel_id: int) -> bool:
+        """Create a new audio channel"""
+        if channel_id < 0 or channel_id >= self.max_channels:
+            return False
+
+        with self.lock:
+            if channel_id not in self.channels:
+                self.channels[channel_id] = AudioChannel(channel_id, self.sample_rate)
+                return True
+        return False
+
+    def remove_channel(self, channel_id: int) -> bool:
+        """Remove an audio channel"""
+        with self.lock:
+            if channel_id in self.channels:
+                del self.channels[channel_id]
+                return True
+        return False
+
+    def get_channel(self, channel_id: int) -> Optional[AudioChannel]:
+        """Get a channel by ID"""
+        return self.channels.get(channel_id)
+
+    def list_channels(self) -> List[int]:
+        """Get list of all channel IDs"""
+        with self.lock:
+            return list(self.channels.keys())
+
+    # Sample management
+    def load_sample_from_file(self, filename: str, name: str = None) -> Optional[str]:
+        """Load audio sample from WAV file into sample library"""
+        if name is None:
+            name = filename
+
+        try:
+            with wave.open(filename, 'rb') as wf:
+                frames = wf.readframes(wf.getnframes())
+                file_sample_rate = wf.getframerate()
+
+                # Convert to numpy array
+                if wf.getsampwidth() == 1:
+                    dtype = np.int8
+                    divisor = 128.0
+                elif wf.getsampwidth() == 2:
+                    dtype = np.int16
+                    divisor = 32768.0
+                elif wf.getsampwidth() == 4:
+                    dtype = np.int32
+                    divisor = 2147483648.0
+                else:
+                    raise ValueError("Unsupported sample width")
+
+                audio_data = np.frombuffer(frames, dtype=dtype)
+                audio_data = audio_data.astype(np.float32) / divisor
+
+                # make sure the audio data is stereo if needed
+                if self.audio_channels == 2 and len(audio_data.shape) == 1:
+                    audio_data = np.column_stack((audio_data, audio_data))
+                elif self.audio_channels == 1 and len(audio_data.shape) == 2:
+                    audio_data = audio_data.mean(axis=1)
+
+                sample = AudioSample(audio_data, file_sample_rate, name)
+                self.sample_library[name] = sample
+                return name
+
+        except Exception as e:
+            print(f"Error loading audio file: {e}")
+            return None
+
+    def get_sample(self, name: str) -> Optional[AudioSample]:
+        """Get a sample from the library"""
+        return self.sample_library.get(name)
+
+    def list_samples(self) -> List[str]:
+        """Get list of all sample names in library"""
+        return list(self.sample_library.keys())
+
+    def remove_sample(self, name: str) -> bool:
+        """Remove a sample from the library"""
+        if name in self.sample_library:
+            del self.sample_library[name]
+            return True
+        return False
+
+    # Channel control methods
+    def load_sample_to_channel(self, channel_id: int, sample_name: str) -> bool:
+        """Load a sample from library to a channel"""
+        channel = self.get_channel(channel_id)
+        sample = self.get_sample(sample_name)
+
+        if channel and sample:
+            with self.lock:
+                channel.load_sample(sample)
+            return True
+        return False
+
+    def play_channel(self, channel_id: int) -> bool:
+        """Start playing a channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.play()
+            return True
+        return False
+
+    def stop_channel(self, channel_id: int) -> bool:
+        """Stop a channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.stop()
+            return True
+        return False
+
+    def pause_channel(self, channel_id: int) -> bool:
+        """Pause a channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.pause()
+            return True
+        return False
+
+    def resume_channel(self, channel_id: int) -> bool:
+        """Resume a channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.resume()
+            return True
+        return False
+
+    def set_channel_volume(self, channel_id: int, volume: float) -> bool:
+        """Set channel volume (0.0 to 1.0+)"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.volume = max(0.0, volume)
+            return True
+        return False
+
+    def set_channel_pitch(self, channel_id: int, pitch: float) -> bool:
+        """Set channel pitch (1.0 = normal)"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.pitch = max(0.1, pitch)
+            return True
+        return False
+
+    def set_channel_pan(self, channel_id: int, pan: float) -> bool:
+        """Set channel pan (-1.0 left, 0.0 center, 1.0 right)"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.pan = np.clip(pan, -1.0, 1.0)
+            return True
+        return False
+
+    def set_channel_loop(self, channel_id: int, loop: bool) -> bool:
+        """Set channel looping"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.loop = loop
+            return True
+        return False
+
+    def mute_channel(self, channel_id: int, mute: bool = True) -> bool:
+        """Mute/unmute a channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.mute = mute
+            return True
+        return False
+
+    def solo_channel(self, channel_id: int, solo: bool = True) -> bool:
+        """Solo a channel (mutes all others)"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.solo = solo
+            return True
+        return False
+
+    def reset_channel(self, channel_id: int) -> bool:
+        """Reset channel to default state"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.reset()
+            return True
+        return False
+
+    def clear_channel(self, channel_id: int) -> bool:
+        """Clear sample from channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                channel.clear_sample()
+            return True
+        return False
+
+    # Global controls
+    def set_master_volume(self, volume: float):
+        """Set master volume"""
+        self.master_volume = max(0.0, volume)
+
+    def set_master_mute(self, mute: bool):
+        """Set master mute"""
+        self.master_mute = mute
+
+    def stop_all_channels(self):
+        """Stop all channels"""
+        with self.lock:
+            for channel in self.channels.values():
+                channel.stop()
+
+    def clear_all_channels(self):
+        """Clear samples from all channels"""
+        with self.lock:
+            for channel in self.channels.values():
+                channel.clear_sample()
+
+    def reset_all_channels(self):
+        """Reset all channels to default state"""
+        with self.lock:
+            for channel in self.channels.values():
+                channel.reset()
+
+    # Audio processing
+    def _resample_audio(self, audio_data: np.ndarray, original_rate: int, target_rate: int) -> np.ndarray:
+        """Simple resampling using linear interpolation"""
+        if original_rate == target_rate:
+            return audio_data
+
+        ratio = target_rate / original_rate
+        new_length = int(len(audio_data) * ratio)
+
+        old_indices = np.linspace(0, len(audio_data) - 1, new_length)
+        new_audio = np.interp(old_indices, np.arange(len(audio_data)), audio_data)
+
+        return new_audio.astype(np.float32)
+
+    def _process_channel(self, channel: AudioChannel, chunk_size: int) -> np.ndarray:
+        """Process a single channel and return audio chunk"""
+        if (channel.state != ChannelState.PLAYING or
+                channel.sample is None or
+                channel.mute):
+            return np.zeros(chunk_size, dtype=np.float32)
+
+        # Calculate effective sample rate with pitch
+        effective_rate = channel.sample.sample_rate * channel.pitch
+
+        # Calculate how many samples we need from the original
+        samples_needed = int(chunk_size * effective_rate / self.sample_rate)
+
+        # Check if we have enough samples
+        remaining_samples = len(channel.sample.data) - channel.position
+
+        if remaining_samples <= 0:
+            if channel.loop:
+                channel.position = 0
+                remaining_samples = len(channel.sample.data)
+            else:
+                channel.state = ChannelState.STOPPED
+                return np.zeros(chunk_size, dtype=np.float32)
+
+        # Get the audio chunk
+        end_pos = min(channel.position + samples_needed, len(channel.sample.data))
+        audio_chunk = channel.sample.data[channel.position:end_pos]
+
+        # Handle looping if we need more samples
+        if len(audio_chunk) < samples_needed and channel.loop:
+            remaining_needed = samples_needed - len(audio_chunk)
+            loop_chunk = channel.sample.data[:remaining_needed]
+            audio_chunk = np.concatenate([audio_chunk, loop_chunk])
+            channel.position = remaining_needed
+        else:
+            channel.position = end_pos
+
+        # Resample to target sample rate if needed
+        if effective_rate != self.sample_rate:
+            audio_chunk = self._resample_audio(audio_chunk, int(effective_rate), self.sample_rate)
+
+        # Ensure we have the right chunk size
+        if len(audio_chunk) > chunk_size:
+            audio_chunk = audio_chunk[:chunk_size]
+        elif len(audio_chunk) < chunk_size:
+            padded = np.zeros(chunk_size, dtype=np.float32)
+            padded[:len(audio_chunk)] = audio_chunk
+            audio_chunk = padded
+
+        # Apply volume
+        audio_chunk *= channel.volume
+
+        return audio_chunk
+
+    def _mix_channels(self) -> np.ndarray:
+        """Mix all active channels together"""
+        mixed = np.zeros(self.chunk_size, dtype=np.float32)
+
+        with self.lock:
+            # Check if any channel is soloed
+            has_solo = any(ch.solo for ch in self.channels.values())
+
+            for channel in self.channels.values():
+                # Skip non-soloed channels if solo is active
+                if has_solo and not channel.solo:
+                    continue
+
+                channel_audio = self._process_channel(channel, self.chunk_size)
+                mixed += channel_audio
+
+        # Apply master volume
+        if not self.master_mute:
+            mixed *= self.master_volume
+
+        # Simple limiting to prevent clipping
+        mixed = np.clip(mixed, -1.0, 1.0)
+
+        return mixed
+
+    def _audio_callback(self, in_data, frame_count, time_info, status):
+        """PyAudio callback function"""
+        audio_data = self._mix_channels()
+
+        # Record if needed
+        if self.recording:
+            self.recorded_data.append(audio_data.copy())
+
+        # Convert to bytes
+        audio_bytes = (audio_data * 32767).astype(np.int16).tobytes()
+
+        return (audio_bytes, pyaudio.paContinue)
+
+    def start_playback(self):
+        """Start real-time audio playback"""
+        if self.is_running:
+            return
+
+        self.stream = self.pa.open(
+            format=pyaudio.paInt16,
+            channels=self.audio_channels,
+            rate=self.sample_rate,
+            output=True,
+            frames_per_buffer=self.chunk_size,
+            stream_callback=self._audio_callback
+        )
+
+        self.stream.start_stream()
+        self.is_running = True
+
+    def stop_playback(self):
+        """Stop real-time audio playback"""
+        if not self.is_running:
+            return
+
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+            self.stream = None
+
+        self.is_running = False
+
+    def get_channel_info(self, channel_id: int) -> Optional[dict]:
+        """Get information about a channel"""
+        channel = self.get_channel(channel_id)
+        if channel:
+            with self.lock:
+                return channel.get_info()
+        return None
+
+    def get_all_channel_info(self) -> Dict[int, dict]:
+        """Get information about all channels"""
+        info = {}
+        with self.lock:
+            for channel_id, channel in self.channels.items():
+                info[channel_id] = channel.get_info()
+        return info
+
+    def start_recording(self):
+        """Start recording output"""
+        self.recording = True
+        self.recorded_data = []
+
+    def stop_recording(self) -> np.ndarray:
+        """Stop recording and return recorded data"""
+        self.recording = False
+        if self.recorded_data:
+            return np.concatenate(self.recorded_data)
+        return np.array([])
+
+    def save_recording(self, filename: str):
+        """Save recorded data to WAV file"""
+        if not self.recorded_data:
+            return False
+
+        try:
+            audio_data = np.concatenate(self.recorded_data)
+
+            with wave.open(filename, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(self.sample_rate)
+
+                # Convert to int16
+                audio_int16 = (audio_data * 32767).astype(np.int16)
+                wf.writeframes(audio_int16.tobytes())
+
+            return True
+        except Exception as e:
+            print(f"Error saving recording: {e}")
+            return False
+
+    def cleanup(self):
+        """Clean up resources"""
+        self.stop_playback()
+        if self.pa:
+            self.pa.terminate()

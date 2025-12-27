@@ -38,7 +38,7 @@ __version__ = '2025.1.22' # 2025 | 1 revisions in year | 22 file (no __init__.py
 
 def pyversion(fullpython=False, fullversion=False, tags=False, date=False, compiler=False, implementation=False, revision=False):
     if fullpython:
-        return f'python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} {sys.version_info.releaselevel} {platform.python_build()[0]} {platform.python_build()[1]} {platform.python_compiler()} {platform.python_implementation()} {platform.python_revision()}'
+        return f'Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} {sys.version_info.releaselevel} {platform.python_build()[0]} {platform.python_build()[1]} {platform.python_compiler()} {platform.python_implementation()} {platform.python_revision()}'
     if fullversion:
         return f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}'
     if tags:

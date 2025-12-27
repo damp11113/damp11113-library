@@ -26,17 +26,12 @@ common_dependencies = [
     "pymata-aio",
     "PyQt5",
     "py-cpuinfo",
-    "GPUtil"
-]
-
-deprecated = [
-    "playsound",
-    "gTTS",
-    "mcstatus",
-    "mcrcon",
-    "pafy",
-    "python-vlc",
-
+    "GPUtil",
+    "matplotlib",
+    "bitarray",
+    "scikit-learn",
+    "pyaudio",
+    "pygments",
 ]
 
 # Windows-specific dependencies
@@ -47,13 +42,13 @@ windows_dependencies = [
 
 # Add platform-specific dependencies
 if platform.system() == 'Windows':
-    install_requires = common_dependencies + windows_dependencies + deprecated
+    install_requires = common_dependencies + windows_dependencies
 else:
-    install_requires = common_dependencies + deprecated
+    install_requires = common_dependencies
 
 setup(
     name='damp11113',
-    version='2025.1.22',
+    version='2025.2.22',
     license='MIT',
     author='damp11113',
     author_email='damp51252@gmail.com',

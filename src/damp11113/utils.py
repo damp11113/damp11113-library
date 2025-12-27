@@ -37,8 +37,10 @@ from decimal import Decimal, getcontext
 
 textt = """Unhandled exception has occurred in your application.If you click\nContinue,the application will ignore this error and attempt to continue.\nIf you click Quit,the application will close immediately.\n"""
 
-def emb(info, details=None, text=textt, title='python'):
-    app = QApplication(sys.argv)
+def emb(info, details=None, text=textt, title='python', standalone=True):
+    if standalone:
+        app = QApplication(sys.argv)
+
     msg = QMessageBox()
 
     msg.setEscapeButton(QMessageBox.Close)
@@ -60,29 +62,6 @@ def emb(info, details=None, text=textt, title='python'):
         return True
     else:
         exit()
-
-def emb2(info, details=None, text=textt, title='python'):
-    msg = QMessageBox()
-
-    msg.setEscapeButton(QMessageBox.Close)
-    msg.setIcon(QMessageBox.Critical)
-
-    msg.setText(text)
-    msg.setInformativeText(info)
-    msg.setWindowTitle(title)
-
-    if details is not None:
-        msg.setDetailedText(details)
-
-    msg.addButton(QPushButton('Continue'), QMessageBox.YesRole)
-    msg.addButton(QPushButton('Quit'), QMessageBox.NoRole)
-
-    retval = msg.exec_()
-
-    if retval == 0:
-        return True
-    else:
-        sys.exit()
 
 def get_size_unit(bytes):
     for unit in ['', 'K', 'M', 'G', 'T', 'P']:
@@ -122,7 +101,7 @@ def numbertotext(numbers):
 
 def Amap(x, in_min, in_max, out_min, out_max):
     try:
-        return int((x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min)
+        return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
     except:
         return 0
 
@@ -398,10 +377,6 @@ def texttable(data):
 
     return table_str
 
-def clearconsolelastline(x=80, y=20):
-    cols = get_terminal_size((x, y)).columns
-    print("\r" + " " * cols, end="", flush=True)
-
 class TextFormatter:
     RESET = "\033[0m"
     TEXT_COLORS = {
@@ -623,3 +598,8 @@ def split_integer_with_percentage(value, percentage):
     part1 = round(value * percentage_decimal)
     part2 = value - part1
     return part1, part2
+
+def frange(start, stop, step=1):
+    while start < stop:
+        yield start
+        start += step

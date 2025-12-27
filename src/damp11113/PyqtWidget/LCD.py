@@ -258,7 +258,7 @@ class LCDWidget(QWidget):
     LCD_CHAR_SPACE_X = 1
     LCD_CHAR_SPACE_Y = 1
     LCD_BORDER_SIZE = 2
-    ROM_FONT_CHARS = 96
+    ROM_FONT_CHARS = 255
     CGRAM_STORAGE_CHARS = 16
 
     def __init__(self, parent=None):

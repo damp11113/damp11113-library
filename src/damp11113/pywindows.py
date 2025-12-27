@@ -29,6 +29,7 @@ SOFTWARE.
 import os
 import time
 import ctypes
+from ctypes import wintypes
 import comtypes.client
 import win32api
 import win32con
@@ -251,3 +252,31 @@ def setConsoleIcon(window_title, image_path):
 
 def mbox(title, text, style):
     return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
+def get_hwnd_from_pid(pid: int) -> int | None:
+    user32 = ctypes.WinDLL("user32")
+    user32.SetWindowPos.restype = wintypes.BOOL
+    user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.INT, wintypes.INT, wintypes.INT,
+                                    wintypes.INT, wintypes.UINT, ]
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL,
+                              wintypes.HWND,
+                              wintypes.LPARAM)
+    user32.EnumWindows.argtypes = [WNDENUMPROC,
+                                   wintypes.LPARAM]
+
+    result = None
+
+    def callback(hwnd, _):
+        nonlocal result
+        lpdw_PID = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(lpdw_PID))
+        hwnd_PID = lpdw_PID.value
+
+        if hwnd_PID == pid:
+            result = hwnd
+            return False
+        return True
+
+    cb_worker = WNDENUMPROC(callback)
+    user32.EnumWindows(cb_worker, 0)
+    return result

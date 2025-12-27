@@ -26,6 +26,7 @@ SOFTWARE.
 """
 
 import os
+import re
 import zipfile
 import json
 import natsort
@@ -158,25 +159,19 @@ def allfiles(folder, scan_subfolders=False, include_path=False, sort_by=None, so
 
     # Sorting the files if requested
     if sort_by:
-        all_files.sort(key=lambda x: getattr(os.stat(x), sort_by) if include_path else x, reverse=sort_reverse)
+        # Sorting options
+        if sort_by == 'name':
+            all_files.sort(key=lambda x: [int(text) if text.isdigit() else text.lower() for text in re.split('(\d+)', x)], reverse=sort_reverse)  # Sort alphabetically (case insensitive)
+        elif sort_by == 'size':
+            all_files.sort(key=lambda x: os.path.getsize(x), reverse=sort_reverse)  # Sort by file size
+        elif sort_by == 'created':
+            all_files.sort(key=lambda x: os.path.getctime(x), reverse=sort_reverse)  # Sort by creation time
+        elif sort_by == 'modified':
+            all_files.sort(key=lambda x: os.path.getmtime(x), reverse=sort_reverse)  # Sort by last modified time
+
+        return all_files
 
     return all_files
-
-    # Sorting options
-    if sort_by == 'name':
-        all_files.sort(key=lambda x: x.lower(), reverse=sort_reverse)  # Sort alphabetically (case insensitive)
-    elif sort_by == 'size':
-        all_files.sort(key=lambda x: os.path.getsize(x), reverse=sort_reverse)  # Sort by file size
-    elif sort_by == 'created':
-        all_files.sort(key=lambda x: os.path.getctime(x), reverse=sort_reverse)  # Sort by creation time
-    elif sort_by == 'modified':
-        all_files.sort(key=lambda x: os.path.getmtime(x), reverse=sort_reverse)  # Sort by last modified time
-
-    return all_files
-
-
-def allfiles_old(folder):
-    return os.listdir(folder)
 
 #----------------------------------count-------------------------------------
 
